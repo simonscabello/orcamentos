@@ -1,12 +1,18 @@
 import { Head, Link } from '@inertiajs/react';
-import { CarFront, Pencil, Phone, Plus } from 'lucide-react';
+import { CarFront, FileText, Pencil, Phone, Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { formatPhone } from '@/lib/format';
 
-type Vehicle = { id: number; model: string; plate?: string; color?: string };
+type Vehicle = {
+    id: number;
+    model: string;
+    plate?: string;
+    color?: string;
+    estimates_count: number;
+};
 type Customer = {
     id: number;
     name: string;
@@ -70,35 +76,66 @@ export default function CustomerShow({ customer }: { customer: Customer }) {
                     {customer.vehicles.length ? (
                         <ul className="divide-border divide-y">
                             {customer.vehicles.map((vehicle) => (
-                                <li
-                                    key={vehicle.id}
-                                    className="flex min-h-16 items-center gap-3 px-4 py-3"
-                                >
-                                    <span className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-xl">
-                                        <CarFront
-                                            className="size-5"
-                                            aria-hidden="true"
-                                        />
-                                    </span>
-                                    <div className="min-w-0 flex-1">
-                                        <p className="text-foreground truncate font-semibold">
-                                            {vehicle.model}
-                                        </p>
-                                        <p className="text-muted-foreground truncate text-sm">
-                                            {vehicle.plate || 'Sem placa'}
-                                            {vehicle.color
-                                                ? ` · ${vehicle.color}`
-                                                : ''}
-                                        </p>
-                                    </div>
-                                    <Button asChild variant="ghost" size="sm">
-                                        <Link
-                                            href={`/vehicles/${vehicle.id}/edit`}
-                                            aria-label={`Editar ${vehicle.model}`}
+                                <li key={vehicle.id} className="px-4 py-3">
+                                    <div className="flex min-h-10 items-center gap-3">
+                                        <span className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-xl">
+                                            <CarFront
+                                                className="size-5"
+                                                aria-hidden="true"
+                                            />
+                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-foreground truncate font-semibold">
+                                                {vehicle.model}
+                                            </p>
+                                            <p className="text-muted-foreground truncate text-sm">
+                                                {vehicle.plate || 'Sem placa'}
+                                                {vehicle.color
+                                                    ? ` · ${vehicle.color}`
+                                                    : ''}
+                                            </p>
+                                        </div>
+                                        <Button
+                                            asChild
+                                            variant="ghost"
+                                            size="sm"
                                         >
-                                            Editar
-                                        </Link>
-                                    </Button>
+                                            <Link
+                                                href={`/vehicles/${vehicle.id}/edit`}
+                                                aria-label={`Editar ${vehicle.model}`}
+                                            >
+                                                Editar
+                                            </Link>
+                                        </Button>
+                                    </div>
+
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                        <Button asChild size="sm">
+                                            <Link
+                                                href={`/estimates/create?vehicle_id=${vehicle.id}`}
+                                                aria-label={`Gerar orçamento para ${vehicle.model}`}
+                                            >
+                                                <Plus aria-hidden="true" />
+                                                Gerar orçamento
+                                            </Link>
+                                        </Button>
+                                        {vehicle.estimates_count > 0 && (
+                                            <Button
+                                                asChild
+                                                variant="outline"
+                                                size="sm"
+                                            >
+                                                <Link
+                                                    href={`/estimates?vehicle_id=${vehicle.id}`}
+                                                    aria-label={`Ver orçamentos de ${vehicle.model}`}
+                                                >
+                                                    <FileText aria-hidden="true" />
+                                                    Ver orçamentos (
+                                                    {vehicle.estimates_count})
+                                                </Link>
+                                            </Button>
+                                        )}
+                                    </div>
                                 </li>
                             ))}
                         </ul>
