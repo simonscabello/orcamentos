@@ -18,17 +18,36 @@ class EstimateController extends Controller
     public function index(Request $request): Response
     {
         $search = $request->string('search')->trim()->toString();
+
+        // Filtro por veículo: usado pelos atalhos "ver orçamentos" da ficha do cliente.
+        $vehicleId = $request->integer('vehicle_id');
+        $vehicle = $vehicleId
+            ? Vehicle::forBusiness($request->user()->business_id)->with('customer:id,name')->find($vehicleId)
+            : null;
+
         $estimates = Estimate::forBusiness($request->user()->business_id)
             ->with(['customer:id,name,phone', 'vehicle:id,model,plate'])
+            ->when($vehicle, fn ($query) => $query->where('vehicle_id', $vehicle->id))
             ->when($search, fn ($query) => $query->where(fn ($q) => $q->whereHas('customer', fn ($customer) => $customer->whereRaw('lower(name) like ?', ['%'.strtolower($search).'%'])->orWhereRaw('lower(phone) like ?', ['%'.strtolower($search).'%']))->orWhereHas('vehicle', fn ($vehicle) => $vehicle->whereRaw('lower(plate) like ?', ['%'.strtolower($search).'%']))))
             ->latest()->get();
 
-        return Inertia::render('estimates/index', compact('estimates', 'search'));
+        return Inertia::render('estimates/index', compact('estimates', 'search', 'vehicle'));
     }
 
     public function create(Request $request): Response
     {
-        return Inertia::render('estimates/form', $this->formData($request));
+        $data = $this->formData($request);
+
+        // Cliente e veículo só vêm preenchidos quando a tela de origem indicou qual é (ex.: ficha do cliente).
+        $vehicle = $data['vehicles']->firstWhere('id', $request->integer('vehicle_id'));
+        $customerId = $vehicle?->customer_id
+            ?? $data['customers']->firstWhere('id', $request->integer('customer_id'))?->id;
+
+        return Inertia::render('estimates/form', [
+            ...$data,
+            'selectedCustomerId' => $customerId,
+            'selectedVehicleId' => $customerId ? $vehicle?->id : null,
+        ]);
     }
 
     public function store(EstimateRequest $request, CreateEstimate $createEstimate): RedirectResponse

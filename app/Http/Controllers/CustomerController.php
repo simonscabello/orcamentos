@@ -37,7 +37,9 @@ class CustomerController extends Controller
 
     public function show(Request $request, int $customer): Response
     {
-        $customer = Customer::forBusiness($request->user()->business_id)->with('vehicles')->findOrFail($customer);
+        $customer = Customer::forBusiness($request->user()->business_id)
+            ->with(['vehicles' => fn ($vehicles) => $vehicles->withCount('estimates')])
+            ->findOrFail($customer);
 
         return Inertia::render('customers/show', compact('customer'));
     }

@@ -36,13 +36,18 @@ export default function EstimateForm({
     estimate,
     customers,
     vehicles,
+    selectedCustomerId,
+    selectedVehicleId,
 }: {
     estimate?: Estimate;
     customers: Customer[];
     vehicles: Vehicle[];
+    selectedCustomerId?: number | null;
+    selectedVehicleId?: number | null;
 }) {
+    // Sem cliente pré-selecionado: só vem preenchido ao editar ou quando a tela de origem indicou o cliente/veículo.
     const initialCustomerId = String(
-        estimate?.customer_id || customers[0]?.id || '',
+        estimate?.customer_id || selectedCustomerId || '',
     );
     const initialCustomerVehicles = vehicles.filter(
         (vehicle) => String(vehicle.customer_id) === initialCustomerId,
@@ -52,7 +57,8 @@ export default function EstimateForm({
         customer_id: initialCustomerId,
         vehicle_id: String(
             estimate?.vehicle_id ||
-                (initialCustomerVehicles.length === 1
+                selectedVehicleId ||
+                (initialCustomerId && initialCustomerVehicles.length === 1
                     ? initialCustomerVehicles[0].id
                     : ''),
         ),

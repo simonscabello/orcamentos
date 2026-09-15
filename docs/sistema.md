@@ -69,6 +69,11 @@ Definidas em `routes/web.php` e `routes/settings.php`. Todas as rotas de negóci
 
 As buscas (`?search=`) em clientes e orçamentos usam `lower(coluna) like ?` sobre nome, telefone e placa.
 
+Atalhos por veículo (botões na ficha do cliente):
+
+- `GET /estimates/create?vehicle_id=` (ou `?customer_id=`) pré-seleciona cliente/veículo no formulário. Sem esses parâmetros nada vem selecionado — o usuário escolhe o cliente.
+- `GET /estimates?vehicle_id=` filtra a listagem pelos orçamentos daquele veículo. IDs fora da oficina são ignorados.
+
 ## Backend: convenções
 
 - **Controllers** finos: validação em `app/Http/Requests`, lógica transacional em `app/Actions` (método `handle`).
