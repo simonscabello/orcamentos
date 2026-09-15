@@ -67,11 +67,7 @@ export default function Login({ status, canResetPassword }: Props) {
 
                         <div className="flex items-center justify-between gap-4">
                             <div className="flex items-center gap-2.5">
-                                <Checkbox
-                                    id="remember"
-                                    name="remember"
-                                    defaultChecked
-                                />
+                                <Checkbox id="remember" name="remember" />
                                 <Label
                                     htmlFor="remember"
                                     className="text-muted-foreground text-sm font-normal"

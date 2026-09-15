@@ -88,7 +88,7 @@ Atalhos por veículo (botões na ficha do cliente):
 - **Mensagens de validação** em português dentro de `messages()` do FormRequest; traduções padrão em `lang/pt_BR`.
 - **Formatação brasileira no PHP:** `App\Support\BrazilianFormat` (telefone, CPF, CNPJ, documento, moeda `R$ 1.234,56`, data `d/m/Y`). Usado principalmente no PDF.
 - **Autenticação:** Fortify (login, reset de senha, verificação de e-mail, 2FA). As views são páginas Inertia configuradas em `FortifyServiceProvider`.
-- **Sessão longa (PWA):** `config/session.php` usa 30 dias (`SESSION_LIFETIME=43200`) e o "Lembrar de mim" do login vem marcado, para a oficina não precisar reautenticar a cada uso. Em produção, confirme o valor na variável de ambiente.
+- **Sessão longa (PWA):** `config/session.php` usa 30 dias (`SESSION_LIFETIME=43200`), para a oficina não precisar reautenticar a cada uso. O "Lembrar de mim" do login continua desmarcado por padrão. Em produção, confirme o valor na variável de ambiente.
 - **Produção:** `AppServiceProvider` força HTTPS, proíbe comandos destrutivos no banco e exige senhas fortes. `bootstrap/app.php` confia em todos os proxies (`trustProxies(at: '*')`), o que é necessário atrás do proxy do Railway. Não remova isso: sem essa configuração os assets passam a ser gerados com `http://` e a página fica em branco por *mixed content*.
 
 ## PDF
