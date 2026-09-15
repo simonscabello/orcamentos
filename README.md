@@ -18,12 +18,21 @@ docker compose up -d
 composer install
 npm install
 php artisan key:generate
-php artisan migrate
+php artisan migrate --seed
 npm run build
 composer run dev
 ```
 
-Abra `http://localhost:8000`. O Compose contém apenas PostgreSQL 17, com banco, usuário e senha `app`, volume persistente e porta local `5434` (a porta interna do container continua `5432`).
+Abra `http://localhost:8000`.
+
+O seeder cria uma oficina de demonstração com clientes, veículos e orçamentos para navegar pelas telas. Acesso:
+
+```txt
+demo@tratto.test
+demo123456
+```
+
+Ele não roda em produção e não recria os dados se a oficina já tiver orçamentos. Para começar do zero: `php artisan migrate:fresh --seed`. O Compose contém apenas PostgreSQL 17, com banco, usuário e senha `app`, volume persistente e porta local `5434` (a porta interna do container continua `5432`).
 
 ## Qualidade
 
