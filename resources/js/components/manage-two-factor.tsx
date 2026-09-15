@@ -45,14 +45,13 @@ export default function ManageTwoFactor(props: Props) {
     }
 
     return (
-        <div className="space-y-6">
+        <section className="space-y-6">
             <Heading
-                variant="small"
                 title="Autenticação em dois fatores"
                 description="Use um código adicional para proteger sua conta."
             />
             {twoFactorEnabled ? (
-                <div className="flex flex-col items-start justify-start space-y-4">
+                <div className="border-border bg-card flex flex-col items-start space-y-4 rounded-2xl border p-4 sm:p-5">
                     <p className="text-muted-foreground text-sm">
                         Ao entrar, você informará um código gerado pelo seu
                         aplicativo autenticador.
@@ -81,7 +80,7 @@ export default function ManageTwoFactor(props: Props) {
                     />
                 </div>
             ) : (
-                <div className="flex flex-col items-start justify-start space-y-4">
+                <div className="border-border bg-card flex flex-col items-start space-y-4 rounded-2xl border p-4 sm:p-5">
                     <p className="text-muted-foreground text-sm">
                         Ao ativar esta proteção, você usará um código do seu
                         aplicativo autenticador ao entrar na conta.
@@ -122,6 +121,6 @@ export default function ManageTwoFactor(props: Props) {
                 fetchSetupData={fetchSetupData}
                 errors={errors}
             />
-        </div>
+        </section>
     );
 }

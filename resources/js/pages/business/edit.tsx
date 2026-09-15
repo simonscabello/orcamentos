@@ -1,5 +1,10 @@
 import { Head, useForm } from '@inertiajs/react';
-import { LoaderCircle } from 'lucide-react';
+
+import Heading from '@/components/heading';
+import { Button } from '@/components/ui/button';
+import { Field } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+
 type Business = {
     name: string;
     owner_name?: string;
@@ -7,6 +12,7 @@ type Business = {
     document?: string;
     address?: string;
 };
+
 export default function BusinessEdit({ business }: { business: Business }) {
     const form = useForm({
         name: business.name || '',
@@ -15,64 +21,136 @@ export default function BusinessEdit({ business }: { business: Business }) {
         document: business.document || '',
         address: business.address || '',
     });
+
     return (
         <>
-            <Head title="Configurações" />
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold">Configurações da oficina</h1>
-                <p className="text-sm text-stone-500">
-                    Estes dados aparecem no PDF.
-                </p>
-            </div>
-            <form
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    form.put('/settings/business');
-                }}
-                className="space-y-5 rounded-2xl border border-stone-200 bg-white p-5"
-            >
-                {[
-                    ['name', 'Nome da oficina', true, 'text'],
-                    ['owner_name', 'Nome do responsável', false, 'text'],
-                    ['phone', 'Telefone', false, 'tel'],
-                    ['document', 'CPF/CNPJ', false, 'text'],
-                    ['address', 'Endereço', false, 'text'],
-                ].map(([field, label, required, type]) => (
-                    <label className="block font-medium" key={field as string}>
-                        {label}
-                        {required && <span className="text-red-600"> *</span>}
-                        <input
-                            type={type as string}
-                            required={Boolean(required)}
-                            value={form.data[field as keyof typeof form.data]}
-                            onChange={(e) =>
-                                form.setData(
-                                    field as keyof typeof form.data,
-                                    e.target.value,
-                                )
-                            }
-                            aria-invalid={Boolean(
-                                form.errors[field as keyof typeof form.errors],
-                            )}
-                            className="mt-2 h-12 w-full rounded-xl border border-stone-300 px-3 aria-invalid:border-red-500 aria-invalid:ring-2 aria-invalid:ring-red-100"
-                        />
-                        {form.errors[field as keyof typeof form.errors] && (
-                            <small className="text-red-600">
-                                {form.errors[field as keyof typeof form.errors]}
-                            </small>
-                        )}
-                    </label>
-                ))}
-                <button
-                    disabled={form.processing}
-                    className="min-h-12 w-full rounded-xl bg-orange-600 font-bold text-white"
+            <Head title="Ajustes da oficina" />
+
+            <section className="space-y-6">
+                <Heading
+                    title="Dados da oficina"
+                    description="Estes dados aparecem no cabeçalho do PDF enviado ao cliente."
+                />
+
+                <form
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        form.put('/settings/business');
+                    }}
+                    className="border-border bg-card space-y-5 rounded-2xl border p-4 sm:p-5"
                 >
-                    {form.processing && (
-                        <LoaderCircle className="mr-2 inline size-4 animate-spin" />
-                    )}
-                    {form.processing ? 'Salvando...' : 'Salvar configurações'}
-                </button>
-            </form>
+                    <Field
+                        id="name"
+                        label="Nome da oficina"
+                        error={form.errors.name}
+                    >
+                        {(field) => (
+                            <Input
+                                {...field}
+                                name="name"
+                                required
+                                value={form.data.name}
+                                onChange={(event) =>
+                                    form.setData('name', event.target.value)
+                                }
+                                placeholder="Ex.: Funilaria São Jorge"
+                            />
+                        )}
+                    </Field>
+
+                    <Field
+                        id="owner_name"
+                        label="Nome do responsável"
+                        optional
+                        error={form.errors.owner_name}
+                    >
+                        {(field) => (
+                            <Input
+                                {...field}
+                                name="owner_name"
+                                autoComplete="name"
+                                value={form.data.owner_name}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'owner_name',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                        )}
+                    </Field>
+
+                    <Field
+                        id="phone"
+                        label="Telefone"
+                        optional
+                        error={form.errors.phone}
+                    >
+                        {(field) => (
+                            <Input
+                                {...field}
+                                name="phone"
+                                type="tel"
+                                inputMode="tel"
+                                autoComplete="tel"
+                                value={form.data.phone}
+                                onChange={(event) =>
+                                    form.setData('phone', event.target.value)
+                                }
+                                placeholder="(00) 00000-0000"
+                            />
+                        )}
+                    </Field>
+
+                    <Field
+                        id="document"
+                        label="CPF ou CNPJ"
+                        optional
+                        error={form.errors.document}
+                    >
+                        {(field) => (
+                            <Input
+                                {...field}
+                                name="document"
+                                inputMode="numeric"
+                                value={form.data.document}
+                                onChange={(event) =>
+                                    form.setData('document', event.target.value)
+                                }
+                            />
+                        )}
+                    </Field>
+
+                    <Field
+                        id="address"
+                        label="Endereço"
+                        optional
+                        error={form.errors.address}
+                    >
+                        {(field) => (
+                            <Input
+                                {...field}
+                                name="address"
+                                autoComplete="street-address"
+                                value={form.data.address}
+                                onChange={(event) =>
+                                    form.setData('address', event.target.value)
+                                }
+                                placeholder="Rua, número, bairro e cidade"
+                            />
+                        )}
+                    </Field>
+
+                    <Button
+                        type="submit"
+                        size="lg"
+                        loading={form.processing}
+                        className="w-full sm:w-auto"
+                    >
+                        {form.processing ? 'Salvando...' : 'Salvar alterações'}
+                    </Button>
+                </form>
+            </section>
         </>
     );
 }

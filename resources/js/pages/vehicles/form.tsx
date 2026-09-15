@@ -1,5 +1,10 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { LoaderCircle } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { Field, FormSection } from '@/components/ui/field';
+import { Input, Select } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+
 type Customer = { id: number; name: string };
 type Vehicle = {
     id: number;
@@ -8,6 +13,7 @@ type Vehicle = {
     plate?: string;
     color?: string;
 };
+
 export default function VehicleForm({
     vehicle,
     customers,
@@ -28,123 +34,154 @@ export default function VehicleForm({
         plate: vehicle?.plate || '',
         color: vehicle?.color || '',
     });
+
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
+
         if (vehicle) form.put(`/vehicles/${vehicle.id}`);
         else form.post('/vehicles');
     };
+
+    const cancelHref = form.data.customer_id
+        ? `/customers/${vehicle?.customer_id || form.data.customer_id}`
+        : '/customers';
+
     return (
         <>
             <Head title={vehicle ? 'Editar veículo' : 'Novo veículo'} />
-            <h1 className="mb-6 text-2xl font-bold">
-                {vehicle ? 'Editar veículo' : 'Novo veículo'}
-            </h1>
-            <form
-                onSubmit={submit}
-                className="space-y-5 rounded-2xl border border-stone-200 bg-white p-5"
-            >
-                <label className="block font-medium">
-                    Cliente <span className="text-red-600">*</span>
-                    <select
-                        required
-                        value={form.data.customer_id}
-                        onChange={(e) =>
-                            form.setData('customer_id', e.target.value)
+
+            <PageHeader
+                title={vehicle ? 'Editar veículo' : 'Novo veículo'}
+                description="Só o modelo é obrigatório. Placa e cor ajudam a identificar depois."
+                backHref={cancelHref}
+            />
+
+            <form onSubmit={submit} className="space-y-4">
+                <FormSection>
+                    <Field
+                        id="customer_id"
+                        label="Cliente"
+                        error={form.errors.customer_id}
+                        hint={
+                            customers.length
+                                ? undefined
+                                : 'Cadastre um cliente antes de continuar.'
                         }
-                        aria-invalid={Boolean(form.errors.customer_id)}
-                        className="mt-2 h-12 w-full rounded-xl border border-stone-300 bg-white px-3 aria-invalid:border-red-500 aria-invalid:ring-2 aria-invalid:ring-red-100"
                     >
-                        <option value="">Selecione um cliente</option>
-                        {customers.map((customer) => (
-                            <option value={customer.id} key={customer.id}>
-                                {customer.name}
-                            </option>
-                        ))}
-                    </select>
-                    {form.errors.customer_id && (
-                        <small className="text-red-600">
-                            {form.errors.customer_id}
-                        </small>
-                    )}
+                        {(field) => (
+                            <Select
+                                {...field}
+                                name="customer_id"
+                                required
+                                value={form.data.customer_id}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'customer_id',
+                                        event.target.value,
+                                    )
+                                }
+                            >
+                                <option value="">Selecione um cliente</option>
+                                {customers.map((customer) => (
+                                    <option
+                                        key={customer.id}
+                                        value={customer.id}
+                                    >
+                                        {customer.name}
+                                    </option>
+                                ))}
+                            </Select>
+                        )}
+                    </Field>
+
                     {!customers.length && (
-                        <Link
-                            href="/customers/create"
-                            className="mt-2 inline-block text-sm font-semibold text-orange-700"
-                        >
-                            Cadastre um cliente antes de continuar
-                        </Link>
+                        <Button asChild variant="outline" className="w-full">
+                            <Link href="/customers/create">
+                                Cadastrar cliente
+                            </Link>
+                        </Button>
                     )}
-                </label>
-                <label className="block font-medium">
-                    Modelo <span className="text-red-600">*</span>
-                    <input
-                        autoFocus
-                        required
-                        value={form.data.model}
-                        onChange={(e) => form.setData('model', e.target.value)}
-                        aria-invalid={Boolean(form.errors.model)}
-                        className="mt-2 h-12 w-full rounded-xl border border-stone-300 px-3 aria-invalid:border-red-500 aria-invalid:ring-2 aria-invalid:ring-red-100"
-                        placeholder="Ex.: Chevrolet Onix"
-                    />
-                    {form.errors.model && (
-                        <small className="text-red-600">
-                            {form.errors.model}
-                        </small>
-                    )}
-                </label>
-                <label className="block font-medium">
-                    Placa{' '}
-                    <span className="font-normal text-stone-400">
-                        (opcional)
-                    </span>
-                    <input
-                        value={form.data.plate}
-                        onChange={(e) =>
-                            form.setData('plate', e.target.value.toUpperCase())
-                        }
-                        aria-invalid={Boolean(form.errors.plate)}
-                        className="mt-2 h-12 w-full rounded-xl border border-stone-300 px-3 uppercase aria-invalid:border-red-500 aria-invalid:ring-2 aria-invalid:ring-red-100"
-                        placeholder="ABC1D23"
-                    />
-                    {form.errors.plate && (
-                        <small className="text-red-600">
-                            {form.errors.plate}
-                        </small>
-                    )}
-                </label>
-                <label className="block font-medium">
-                    Cor{' '}
-                    <span className="font-normal text-stone-400">
-                        (opcional)
-                    </span>
-                    <input
-                        value={form.data.color}
-                        onChange={(e) => form.setData('color', e.target.value)}
-                        aria-invalid={Boolean(form.errors.color)}
-                        className="mt-2 h-12 w-full rounded-xl border border-stone-300 px-3 aria-invalid:border-red-500 aria-invalid:ring-2 aria-invalid:ring-red-100"
-                        placeholder="Ex.: Prata"
-                    />
-                    {form.errors.color && (
-                        <small className="text-red-600">
-                            {form.errors.color}
-                        </small>
-                    )}
-                </label>
-                <button
-                    disabled={form.processing}
-                    className="min-h-12 w-full rounded-xl bg-orange-600 font-bold text-white disabled:opacity-60"
-                >
-                    {form.processing && (
-                        <LoaderCircle className="mr-2 inline size-4 animate-spin" />
-                    )}
-                    {form.processing ? 'Salvando...' : 'Salvar veículo'}
-                </button>
-                <Link
-                    href={`/customers/${vehicle?.customer_id || form.data.customer_id}`}
-                    className="block py-2 text-center font-medium text-stone-600"
-                >
-                    Cancelar
-                </Link>
+
+                    <Field id="model" label="Modelo" error={form.errors.model}>
+                        {(field) => (
+                            <Input
+                                {...field}
+                                name="model"
+                                required
+                                autoFocus
+                                value={form.data.model}
+                                onChange={(event) =>
+                                    form.setData('model', event.target.value)
+                                }
+                                placeholder="Ex.: Chevrolet Onix"
+                            />
+                        )}
+                    </Field>
+
+                    <Field
+                        id="plate"
+                        label="Placa"
+                        optional
+                        error={form.errors.plate}
+                    >
+                        {(field) => (
+                            <Input
+                                {...field}
+                                name="plate"
+                                autoCapitalize="characters"
+                                autoCorrect="off"
+                                spellCheck={false}
+                                value={form.data.plate}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'plate',
+                                        event.target.value.toUpperCase(),
+                                    )
+                                }
+                                className="uppercase"
+                                placeholder="ABC1D23"
+                            />
+                        )}
+                    </Field>
+
+                    <Field
+                        id="color"
+                        label="Cor"
+                        optional
+                        error={form.errors.color}
+                    >
+                        {(field) => (
+                            <Input
+                                {...field}
+                                name="color"
+                                value={form.data.color}
+                                onChange={(event) =>
+                                    form.setData('color', event.target.value)
+                                }
+                                placeholder="Ex.: Prata"
+                            />
+                        )}
+                    </Field>
+                </FormSection>
+
+                <div className="flex flex-col-reverse gap-2 sm:flex-row-reverse">
+                    <Button
+                        type="submit"
+                        size="lg"
+                        loading={form.processing}
+                        className="w-full sm:w-auto"
+                    >
+                        {form.processing ? 'Salvando...' : 'Salvar veículo'}
+                    </Button>
+                    <Button
+                        asChild
+                        variant="ghost"
+                        size="lg"
+                        className="w-full sm:w-auto"
+                    >
+                        <Link href={cancelHref}>Cancelar</Link>
+                    </Button>
+                </div>
             </form>
         </>
     );

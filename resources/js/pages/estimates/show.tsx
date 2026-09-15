@@ -1,20 +1,55 @@
 import { Head, Link } from '@inertiajs/react';
-import { Download, LoaderCircle, Pencil, Share2 } from 'lucide-react';
+import { Download, Pencil, Share2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { formatCurrency, formatDate } from '@/lib/format';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/ui/page-header';
+import {
+    formatCurrency,
+    formatDate,
+    formatEstimateNumber,
+    formatPhone,
+} from '@/lib/format';
+
 type Estimate = {
     id: number;
     number: number;
     total: number;
     date: string;
+    status?: string;
     notes?: string;
     customer: { name: string; phone?: string };
     vehicle: { model: string; plate?: string; color?: string };
     items: { id: number; description: string; amount: number }[];
 };
+
+function DetailRow({
+    label,
+    value,
+    secondary,
+}: {
+    label: string;
+    value: string;
+    secondary?: React.ReactNode;
+}) {
+    return (
+        <div className="py-3 first:pt-0 last:pb-0">
+            <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                {label}
+            </p>
+            <p className="text-foreground mt-0.5 font-semibold">{value}</p>
+            {secondary && (
+                <p className="text-muted-foreground text-sm">{secondary}</p>
+            )}
+        </div>
+    );
+}
+
 export default function EstimateShow({ estimate }: { estimate: Estimate }) {
     const pdfUrl = `/estimates/${estimate.id}/pdf`;
+    const fileName = `orcamento-${String(estimate.number).padStart(3, '0')}.pdf`;
     const [pdfAction, setPdfAction] = useState<'download' | 'share' | null>(
         null,
     );
@@ -33,7 +68,7 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
         link.href = url;
-        link.download = `orcamento-${String(estimate.number).padStart(3, '0')}.pdf`;
+        link.download = fileName;
         link.click();
         URL.revokeObjectURL(url);
     };
@@ -55,11 +90,10 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
 
         try {
             const blob = await fetchPdf();
-            const file = new File(
-                [blob],
-                `orcamento-${String(estimate.number).padStart(3, '0')}.pdf`,
-                { type: 'application/pdf' },
-            );
+            const file = new File([blob], fileName, {
+                type: 'application/pdf',
+            });
+
             if (navigator.canShare?.({ files: [file] })) {
                 await navigator.share({
                     title: `Orçamento #${estimate.number}`,
@@ -80,101 +114,135 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
             setPdfAction(null);
         }
     };
+
+    const vehicleDetails = [estimate.vehicle.plate, estimate.vehicle.color]
+        .filter(Boolean)
+        .join(' · ');
+
     return (
         <>
-            <Head title={`Orçamento #${estimate.number}`} />
-            <div className="mb-5 flex items-start justify-between">
-                <div>
-                    <p className="text-sm font-semibold text-orange-700">
-                        ORÇAMENTO
-                    </p>
-                    <h1 className="text-3xl font-bold">
-                        #{String(estimate.number).padStart(3, '0')}
-                    </h1>
+            <Head
+                title={`Orçamento ${formatEstimateNumber(estimate.number)}`}
+            />
+
+            <PageHeader
+                eyebrow="Orçamento"
+                title={formatEstimateNumber(estimate.number)}
+                description={formatDate(estimate.date)}
+                backHref="/estimates"
+                backLabel="Orçamentos"
+                action={
+                    <Button
+                        asChild
+                        variant="outline"
+                        size="icon"
+                        aria-label="Editar orçamento"
+                    >
+                        <Link href={`/estimates/${estimate.id}/edit`}>
+                            <Pencil aria-hidden="true" />
+                        </Link>
+                    </Button>
+                }
+            />
+
+            {estimate.status && (
+                <div className="mb-4">
+                    <Badge
+                        tone={
+                            estimate.status === 'sent' ? 'success' : 'neutral'
+                        }
+                    >
+                        {estimate.status === 'sent' ? 'Enviado' : 'Rascunho'}
+                    </Badge>
                 </div>
-                <Link
-                    href={`/estimates/${estimate.id}/edit`}
-                    aria-label="Editar orçamento"
-                    className="flex size-11 items-center justify-center rounded-xl border border-stone-300 text-stone-700"
-                >
-                    <Pencil />
-                </Link>
+            )}
+
+            <div className="divide-border border-border bg-card divide-y rounded-2xl border p-4 sm:p-5">
+                <DetailRow
+                    label="Cliente"
+                    value={estimate.customer.name}
+                    secondary={
+                        estimate.customer.phone ? (
+                            <a
+                                href={`tel:${estimate.customer.phone.replace(/\D/g, '')}`}
+                                className="hover:text-foreground hover:underline"
+                            >
+                                {formatPhone(estimate.customer.phone)}
+                            </a>
+                        ) : null
+                    }
+                />
+                <DetailRow
+                    label="Veículo"
+                    value={estimate.vehicle.model}
+                    secondary={vehicleDetails || 'Sem placa'}
+                />
             </div>
-            <div className="space-y-4 rounded-2xl border border-stone-200 bg-white p-5">
-                <div>
-                    <p className="text-sm text-stone-500">Cliente</p>
-                    <p className="font-bold">{estimate.customer.name}</p>
-                    <p className="text-sm text-stone-500">
-                        {estimate.customer.phone}
-                    </p>
-                </div>
-                <div>
-                    <p className="text-sm text-stone-500">Veículo</p>
-                    <p className="font-bold">{estimate.vehicle.model}</p>
-                    <p className="text-sm text-stone-500">
-                        {estimate.vehicle.plate || 'Sem placa'}
-                        {estimate.vehicle.color
-                            ? ` · ${estimate.vehicle.color}`
-                            : ''}
-                    </p>
-                </div>
-                <p className="text-sm text-stone-500">
-                    Data: {formatDate(estimate.date)}
-                </p>
-            </div>
-            <section className="mt-5 overflow-hidden rounded-2xl border border-stone-200 bg-white">
-                <h2 className="border-b border-stone-100 p-4 text-lg font-bold">
+
+            <section className="border-border bg-card mt-4 overflow-hidden rounded-2xl border">
+                <h2 className="border-border border-b px-4 py-3 text-base font-semibold sm:px-5">
                     Itens
                 </h2>
-                {estimate.items.map((item) => (
-                    <div
-                        key={item.id}
-                        className="flex justify-between gap-4 border-b border-stone-100 p-4"
-                    >
-                        <p>{item.description}</p>
-                        <p className="font-semibold whitespace-nowrap">
-                            {formatCurrency(item.amount)}
-                        </p>
-                    </div>
-                ))}
-                <div className="flex justify-between p-4 text-lg font-bold">
-                    <p>TOTAL</p>
-                    <p>{formatCurrency(estimate.total)}</p>
+                <ul className="divide-border divide-y">
+                    {estimate.items.map((item) => (
+                        <li
+                            key={item.id}
+                            className="flex items-start justify-between gap-4 px-4 py-3 sm:px-5"
+                        >
+                            <span className="text-foreground">
+                                {item.description}
+                            </span>
+                            <span className="tabular shrink-0 font-medium">
+                                {formatCurrency(item.amount)}
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+                <div className="bg-muted/50 flex items-baseline justify-between gap-4 px-4 py-4 sm:px-5">
+                    <span className="text-muted-foreground text-sm font-semibold tracking-wide uppercase">
+                        Total
+                    </span>
+                    <span className="tabular text-2xl font-bold tracking-tight">
+                        {formatCurrency(estimate.total)}
+                    </span>
                 </div>
             </section>
+
             {estimate.notes && (
-                <section className="mt-5 rounded-2xl border border-stone-200 bg-white p-5">
-                    <h2 className="mb-2 font-bold">Observações</h2>
-                    <p className="whitespace-pre-line text-stone-600">
+                <section className="border-border bg-card mt-4 rounded-2xl border p-4 sm:p-5">
+                    <h2 className="mb-1.5 text-base font-semibold">
+                        Observações
+                    </h2>
+                    <p className="text-muted-foreground text-sm whitespace-pre-line">
                         {estimate.notes}
                     </p>
                 </section>
             )}
-            <div className="mt-5 grid grid-cols-2 gap-3">
-                <button
-                    disabled={pdfAction !== null}
+
+            <div className="border-border bg-card/95 sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] z-10 mt-4 grid grid-cols-2 gap-3 rounded-2xl border p-3 shadow-lg backdrop-blur lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+                <Button
+                    type="button"
+                    size="lg"
                     onClick={share}
-                    className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-orange-600 font-bold text-white disabled:opacity-60"
-                >
-                    {pdfAction === 'share' ? (
-                        <LoaderCircle className="size-5 animate-spin" />
-                    ) : (
-                        <Share2 className="size-5" />
-                    )}
-                    {pdfAction === 'share' ? 'Gerando PDF...' : 'Compartilhar'}
-                </button>
-                <button
                     disabled={pdfAction !== null}
-                    onClick={download}
-                    className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-stone-300 font-bold disabled:opacity-60"
+                    loading={pdfAction === 'share'}
                 >
-                    {pdfAction === 'download' ? (
-                        <LoaderCircle className="size-5 animate-spin" />
-                    ) : (
-                        <Download className="size-5" />
+                    {pdfAction !== 'share' && <Share2 aria-hidden="true" />}
+                    {pdfAction === 'share' ? 'Gerando PDF...' : 'Compartilhar'}
+                </Button>
+                <Button
+                    type="button"
+                    size="lg"
+                    variant="outline"
+                    onClick={download}
+                    disabled={pdfAction !== null}
+                    loading={pdfAction === 'download'}
+                >
+                    {pdfAction !== 'download' && (
+                        <Download aria-hidden="true" />
                     )}
                     {pdfAction === 'download' ? 'Gerando PDF...' : 'Baixar PDF'}
-                </button>
+                </Button>
             </div>
         </>
     );

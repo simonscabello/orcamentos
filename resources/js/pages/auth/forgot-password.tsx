@@ -1,11 +1,9 @@
-// Components
 import { Form, Head } from '@inertiajs/react';
-import { LoaderCircle } from 'lucide-react';
-import InputError from '@/components/input-error';
+
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
+import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { login } from '@/routes';
 import { email } from '@/routes/password';
 
@@ -15,50 +13,44 @@ export default function ForgotPassword({ status }: { status?: string }) {
             <Head title="Redefinir senha" />
 
             {status && (
-                <div className="mb-4 text-center text-sm font-medium text-green-600">
+                <p className="bg-success-soft text-success mb-5 rounded-xl px-4 py-3 text-center text-sm font-medium">
                     {status}
-                </div>
+                </p>
             )}
 
-            <div className="space-y-6">
-                <Form {...email.form()}>
-                    {({ processing, errors }) => (
-                        <>
-                            <div className="grid gap-2">
-                                <Label htmlFor="email">E-mail</Label>
+            <Form {...email.form()} className="space-y-5">
+                {({ processing, errors }) => (
+                    <>
+                        <Field id="email" label="E-mail" error={errors.email}>
+                            {(field) => (
                                 <Input
-                                    id="email"
+                                    {...field}
                                     type="email"
                                     name="email"
-                                    autoComplete="off"
+                                    required
                                     autoFocus
+                                    autoComplete="email"
                                     placeholder="voce@exemplo.com"
                                 />
+                            )}
+                        </Field>
 
-                                <InputError message={errors.email} />
-                            </div>
+                        <Button
+                            type="submit"
+                            size="lg"
+                            className="w-full"
+                            loading={processing}
+                            data-test="email-password-reset-link-button"
+                        >
+                            {processing ? 'Enviando...' : 'Enviar link'}
+                        </Button>
+                    </>
+                )}
+            </Form>
 
-                            <div className="my-6 flex items-center justify-start">
-                                <Button
-                                    className="w-full"
-                                    disabled={processing}
-                                    data-test="email-password-reset-link-button"
-                                >
-                                    {processing && (
-                                        <LoaderCircle className="h-4 w-4 animate-spin" />
-                                    )}
-                                    Enviar link para redefinir senha
-                                </Button>
-                            </div>
-                        </>
-                    )}
-                </Form>
-
-                <div className="text-muted-foreground space-x-1 text-center text-sm">
-                    <span>Ou volte para</span>
-                    <TextLink href={login()}>entrar</TextLink>
-                </div>
-            </div>
+            <p className="text-muted-foreground mt-6 text-center text-sm">
+                Lembrou a senha? <TextLink href={login()}>Entrar</TextLink>
+            </p>
         </>
     );
 }

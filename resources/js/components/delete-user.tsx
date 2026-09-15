@@ -1,8 +1,8 @@
 import { Form } from '@inertiajs/react';
 import { useRef } from 'react';
+
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import Heading from '@/components/heading';
-import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,77 +11,78 @@ import {
     DialogContent,
     DialogDescription,
     DialogFooter,
+    DialogHeader,
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
+import { Field } from '@/components/ui/field';
 
 export default function DeleteUser() {
     const passwordInput = useRef<HTMLInputElement>(null);
 
     return (
-        <div className="space-y-6">
+        <section className="space-y-6">
             <Heading
-                variant="small"
                 title="Excluir conta"
                 description="Exclua sua conta e todos os dados vinculados a ela."
             />
-            <div className="space-y-4 rounded-lg border border-red-100 bg-red-50 p-4 dark:border-red-200/10 dark:bg-red-700/10">
-                <div className="relative space-y-0.5 text-red-600 dark:text-red-100">
-                    <p className="font-medium">Atenção</p>
-                    <p className="text-sm">Esta ação não pode ser desfeita.</p>
-                </div>
+
+            <div className="border-destructive/25 bg-destructive-soft space-y-4 rounded-2xl border p-4 sm:p-5">
+                <p className="text-foreground text-sm">
+                    Orçamentos, clientes e veículos serão apagados
+                    permanentemente. Esta ação não pode ser desfeita.
+                </p>
 
                 <Dialog>
                     <DialogTrigger asChild>
                         <Button
                             variant="destructive"
+                            className="w-full sm:w-auto"
                             data-test="delete-user-button"
                         >
                             Excluir conta
                         </Button>
                     </DialogTrigger>
                     <DialogContent>
-                        <DialogTitle>Excluir conta?</DialogTitle>
-                        <DialogDescription>
-                            Todos os dados da sua conta serão excluídos
-                            permanentemente. Informe sua senha para confirmar.
-                        </DialogDescription>
+                        <DialogHeader>
+                            <DialogTitle>Excluir conta?</DialogTitle>
+                            <DialogDescription>
+                                Todos os dados da sua conta serão excluídos
+                                permanentemente. Informe sua senha para
+                                confirmar.
+                            </DialogDescription>
+                        </DialogHeader>
 
                         <Form
                             {...ProfileController.destroy.form()}
-                            options={{
-                                preserveScroll: true,
-                            }}
+                            options={{ preserveScroll: true }}
                             onError={() => passwordInput.current?.focus()}
                             resetOnSuccess
-                            className="space-y-6"
+                            className="space-y-5"
                         >
                             {({ resetAndClearErrors, processing, errors }) => (
                                 <>
-                                    <div className="grid gap-2">
-                                        <Label
-                                            htmlFor="password"
-                                            className="sr-only"
-                                        >
-                                            Senha
-                                        </Label>
+                                    <Field
+                                        id="password"
+                                        label="Senha"
+                                        error={errors.password}
+                                    >
+                                        {(field) => (
+                                            <PasswordInput
+                                                {...field}
+                                                name="password"
+                                                ref={passwordInput}
+                                                placeholder="Sua senha"
+                                                autoComplete="current-password"
+                                            />
+                                        )}
+                                    </Field>
 
-                                        <PasswordInput
-                                            id="password"
-                                            name="password"
-                                            ref={passwordInput}
-                                            placeholder="Sua senha"
-                                            autoComplete="current-password"
-                                        />
-
-                                        <InputError message={errors.password} />
-                                    </div>
-
-                                    <DialogFooter className="gap-2">
+                                    <DialogFooter>
                                         <DialogClose asChild>
                                             <Button
-                                                variant="secondary"
+                                                type="button"
+                                                variant="outline"
                                                 onClick={() =>
                                                     resetAndClearErrors()
                                                 }
@@ -91,18 +92,14 @@ export default function DeleteUser() {
                                         </DialogClose>
 
                                         <Button
+                                            type="submit"
                                             variant="destructive"
-                                            disabled={processing}
-                                            asChild
+                                            loading={processing}
+                                            data-test="confirm-delete-user-button"
                                         >
-                                            <button
-                                                type="submit"
-                                                data-test="confirm-delete-user-button"
-                                            >
-                                                {processing
-                                                    ? 'Excluindo...'
-                                                    : 'Excluir conta'}
-                                            </button>
+                                            {processing
+                                                ? 'Excluindo...'
+                                                : 'Excluir conta'}
                                         </Button>
                                     </DialogFooter>
                                 </>
@@ -111,6 +108,6 @@ export default function DeleteUser() {
                     </DialogContent>
                 </Dialog>
             </div>
-        </div>
+        </section>
     );
 }

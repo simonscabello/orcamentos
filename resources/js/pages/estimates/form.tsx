@@ -1,6 +1,18 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { LoaderCircle, Plus, Trash2 } from 'lucide-react';
-import { centsToInput, formatCurrency, moneyToCents } from '@/lib/format';
+import { Plus, Trash2 } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+
+import { Button } from '@/components/ui/button';
+import { Field, FieldError, FormSection } from '@/components/ui/field';
+import { Input, Select, Textarea } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+import {
+    centsToInput,
+    formatCurrency,
+    formatPhone,
+    moneyToCents,
+} from '@/lib/format';
+
 type Customer = { id: number; name: string; phone?: string };
 type Vehicle = {
     id: number;
@@ -19,6 +31,7 @@ type Estimate = {
     items: { description: string; amount: number }[];
 };
 type Item = { description: string; amount: string };
+
 export default function EstimateForm({
     estimate,
     customers,
@@ -28,9 +41,21 @@ export default function EstimateForm({
     customers: Customer[];
     vehicles: Vehicle[];
 }) {
+    const initialCustomerId = String(
+        estimate?.customer_id || customers[0]?.id || '',
+    );
+    const initialCustomerVehicles = vehicles.filter(
+        (vehicle) => String(vehicle.customer_id) === initialCustomerId,
+    );
+
     const form = useForm({
-        customer_id: String(estimate?.customer_id || customers[0]?.id || ''),
-        vehicle_id: String(estimate?.vehicle_id || ''),
+        customer_id: initialCustomerId,
+        vehicle_id: String(
+            estimate?.vehicle_id ||
+                (initialCustomerVehicles.length === 1
+                    ? initialCustomerVehicles[0].id
+                    : ''),
+        ),
         date: estimate?.date || new Date().toISOString().slice(0, 10),
         status: estimate?.status || 'draft',
         notes: estimate?.notes || '',
@@ -41,6 +66,10 @@ export default function EstimateForm({
               }))
             : ([{ description: '', amount: '' }] as Item[]),
     });
+
+    const descriptionRefs = useRef<(HTMLInputElement | null)[]>([]);
+    const focusIndex = useRef<number | null>(null);
+
     const options = vehicles.filter(
         (vehicle) => String(vehicle.customer_id) === form.data.customer_id,
     );
@@ -48,6 +77,15 @@ export default function EstimateForm({
         (sum, item) => sum + moneyToCents(item.amount),
         0,
     );
+
+    // Move o foco para o item recém-adicionado.
+    useEffect(() => {
+        if (focusIndex.current === null) return;
+
+        descriptionRefs.current[focusIndex.current]?.focus();
+        focusIndex.current = null;
+    }, [form.data.items.length]);
+
     const setItem = (index: number, patch: Partial<Item>) =>
         form.setData(
             'items',
@@ -55,6 +93,37 @@ export default function EstimateForm({
                 i === index ? { ...item, ...patch } : item,
             ),
         );
+
+    const addItem = () => {
+        focusIndex.current = form.data.items.length;
+        form.setData('items', [
+            ...form.data.items,
+            { description: '', amount: '' },
+        ]);
+    };
+
+    const removeItem = (index: number) =>
+        form.setData(
+            'items',
+            form.data.items.filter((_, i) => i !== index),
+        );
+
+    const selectCustomer = (customerId: string) => {
+        const customerVehicles = vehicles.filter(
+            (vehicle) => String(vehicle.customer_id) === customerId,
+        );
+
+        form.setData((data) => ({
+            ...data,
+            customer_id: customerId,
+            // Com um único veículo, já deixamos selecionado para poupar um toque.
+            vehicle_id:
+                customerVehicles.length === 1
+                    ? String(customerVehicles[0].id)
+                    : '',
+        }));
+    };
+
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
         form.transform((data) => ({
@@ -64,267 +133,326 @@ export default function EstimateForm({
                 amount: moneyToCents(item.amount),
             })),
         }));
+
         if (estimate) form.put(`/estimates/${estimate.id}`);
         else form.post('/estimates');
     };
+
+    const customerHasNoVehicle = Boolean(
+        form.data.customer_id && options.length === 0,
+    );
+
     return (
         <>
             <Head title={estimate ? 'Editar orçamento' : 'Novo orçamento'} />
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold">
-                    {estimate ? 'Editar orçamento' : 'Novo orçamento'}
-                </h1>
-                <p className="text-sm text-stone-500">
-                    Preencha só o necessário.
-                </p>
-            </div>
-            <form onSubmit={submit} className="space-y-5">
-                <section className="space-y-4 rounded-2xl border border-stone-200 bg-white p-5">
-                    <label className="block font-medium">
-                        Cliente <span className="text-red-600">*</span>
-                        <select
-                            required
-                            value={form.data.customer_id}
-                            onChange={(e) =>
-                                form.setData((data) => ({
-                                    ...data,
-                                    customer_id: e.target.value,
-                                    vehicle_id: '',
-                                }))
-                            }
-                            aria-invalid={Boolean(form.errors.customer_id)}
-                            className="mt-2 h-12 w-full rounded-xl border border-stone-300 bg-white px-3 aria-invalid:border-red-500 aria-invalid:ring-2 aria-invalid:ring-red-100"
-                        >
-                            <option value="">Selecione um cliente</option>
-                            {customers.map((customer) => (
-                                <option key={customer.id} value={customer.id}>
-                                    {customer.name}
-                                    {customer.phone
-                                        ? ` · ${customer.phone}`
-                                        : ''}
-                                </option>
-                            ))}
-                        </select>
-                        {form.errors.customer_id && (
-                            <small className="text-red-600">
-                                {form.errors.customer_id}
-                            </small>
+
+            <PageHeader
+                title={estimate ? 'Editar orçamento' : 'Novo orçamento'}
+                description="Escolha o cliente, liste os serviços e salve."
+                backHref={estimate ? `/estimates/${estimate.id}` : '/estimates'}
+            />
+
+            <form onSubmit={submit} className="space-y-4">
+                <FormSection title="Cliente e veículo">
+                    <Field
+                        id="customer_id"
+                        label="Cliente"
+                        error={form.errors.customer_id}
+                    >
+                        {(field) => (
+                            <Select
+                                {...field}
+                                name="customer_id"
+                                required
+                                value={form.data.customer_id}
+                                onChange={(event) =>
+                                    selectCustomer(event.target.value)
+                                }
+                            >
+                                <option value="">Selecione um cliente</option>
+                                {customers.map((customer) => (
+                                    <option
+                                        key={customer.id}
+                                        value={customer.id}
+                                    >
+                                        {customer.name}
+                                        {customer.phone
+                                            ? ` · ${formatPhone(customer.phone)}`
+                                            : ''}
+                                    </option>
+                                ))}
+                            </Select>
                         )}
-                        <Link
-                            href="/customers/create"
-                            className="mt-2 inline-block text-sm font-semibold text-orange-700"
-                        >
-                            + Cadastrar cliente
-                        </Link>
-                    </label>
-                    <label className="block font-medium">
-                        Veículo <span className="text-red-600">*</span>
-                        <select
-                            required
-                            value={form.data.vehicle_id}
-                            onChange={(e) =>
-                                form.setData('vehicle_id', e.target.value)
-                            }
-                            disabled={!form.data.customer_id}
-                            aria-invalid={Boolean(form.errors.vehicle_id)}
-                            className="mt-2 h-12 w-full rounded-xl border border-stone-300 bg-white px-3 disabled:bg-stone-100 aria-invalid:border-red-500 aria-invalid:ring-2 aria-invalid:ring-red-100"
-                        >
-                            <option value="">Selecione um veículo</option>
-                            {options.map((vehicle) => (
-                                <option key={vehicle.id} value={vehicle.id}>
-                                    {vehicle.model}
-                                    {vehicle.plate ? ` · ${vehicle.plate}` : ''}
-                                </option>
-                            ))}
-                        </select>
-                        {form.errors.vehicle_id && (
-                            <small className="text-red-600">
-                                {form.errors.vehicle_id}
-                            </small>
+                    </Field>
+                    <Link
+                        href="/customers/create"
+                        className="text-primary -mt-3 inline-flex min-h-9 items-center gap-1 rounded-lg text-sm font-semibold hover:underline"
+                    >
+                        <Plus className="size-4" aria-hidden="true" />
+                        Cadastrar cliente
+                    </Link>
+
+                    <Field
+                        id="vehicle_id"
+                        label="Veículo"
+                        error={form.errors.vehicle_id}
+                        hint={
+                            customerHasNoVehicle
+                                ? 'Este cliente ainda não tem veículo cadastrado.'
+                                : undefined
+                        }
+                    >
+                        {(field) => (
+                            <Select
+                                {...field}
+                                name="vehicle_id"
+                                required
+                                disabled={!form.data.customer_id}
+                                value={form.data.vehicle_id}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'vehicle_id',
+                                        event.target.value,
+                                    )
+                                }
+                            >
+                                <option value="">Selecione um veículo</option>
+                                {options.map((vehicle) => (
+                                    <option key={vehicle.id} value={vehicle.id}>
+                                        {vehicle.model}
+                                        {vehicle.plate
+                                            ? ` · ${vehicle.plate}`
+                                            : ''}
+                                    </option>
+                                ))}
+                            </Select>
                         )}
-                        <Link
-                            href="/vehicles/create"
-                            className="mt-2 inline-block text-sm font-semibold text-orange-700"
-                        >
-                            + Cadastrar veículo
-                        </Link>
-                    </label>
-                    <label className="block font-medium">
-                        Data <span className="text-red-600">*</span>
-                        <input
-                            required
-                            type="date"
-                            value={form.data.date}
-                            onChange={(e) =>
-                                form.setData('date', e.target.value)
-                            }
-                            aria-invalid={Boolean(form.errors.date)}
-                            className="mt-2 h-12 w-full rounded-xl border border-stone-300 px-3 aria-invalid:border-red-500 aria-invalid:ring-2 aria-invalid:ring-red-100"
-                        />
-                        {form.errors.date && (
-                            <small className="text-red-600">
-                                {form.errors.date}
-                            </small>
+                    </Field>
+                    <Link
+                        href={
+                            form.data.customer_id
+                                ? `/vehicles/create?customer_id=${form.data.customer_id}`
+                                : '/vehicles/create'
+                        }
+                        className="text-primary -mt-3 inline-flex min-h-9 items-center gap-1 rounded-lg text-sm font-semibold hover:underline"
+                    >
+                        <Plus className="size-4" aria-hidden="true" />
+                        Cadastrar veículo
+                    </Link>
+
+                    <Field id="date" label="Data" error={form.errors.date}>
+                        {(field) => (
+                            <Input
+                                {...field}
+                                name="date"
+                                type="date"
+                                required
+                                value={form.data.date}
+                                onChange={(event) =>
+                                    form.setData('date', event.target.value)
+                                }
+                            />
                         )}
-                    </label>
+                    </Field>
+                </FormSection>
+
+                <section className="border-border bg-card rounded-2xl border p-4 sm:p-5">
+                    <header className="mb-4 flex items-baseline justify-between gap-4">
+                        <h2 className="text-base font-semibold">
+                            Itens do orçamento
+                        </h2>
+                        <span className="text-muted-foreground text-sm">
+                            {form.data.items.length}{' '}
+                            {form.data.items.length === 1 ? 'item' : 'itens'}
+                        </span>
+                    </header>
+
+                    <ul className="space-y-3">
+                        {form.data.items.map((item, index) => {
+                            const descriptionError =
+                                form.errors[`items.${index}.description`];
+                            const amountError =
+                                form.errors[`items.${index}.amount`];
+
+                            return (
+                                <li
+                                    key={index}
+                                    className="border-border bg-muted/40 rounded-xl border p-3"
+                                >
+                                    <div className="mb-2 flex items-center justify-between">
+                                        <span className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+                                            Item {index + 1}
+                                        </span>
+                                        {form.data.items.length > 1 && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon-sm"
+                                                onClick={() =>
+                                                    removeItem(index)
+                                                }
+                                                aria-label={`Remover item ${index + 1}`}
+                                                className="text-destructive hover:bg-destructive-soft hover:text-destructive"
+                                            >
+                                                <Trash2 aria-hidden="true" />
+                                            </Button>
+                                        )}
+                                    </div>
+
+                                    <div className="grid gap-3 sm:grid-cols-[1fr_11rem]">
+                                        <Field
+                                            id={`items-${index}-description`}
+                                            label="Descrição do serviço"
+                                            error={descriptionError}
+                                        >
+                                            {(field) => (
+                                                <Input
+                                                    {...field}
+                                                    ref={(element) => {
+                                                        descriptionRefs.current[
+                                                            index
+                                                        ] = element;
+                                                    }}
+                                                    required
+                                                    value={item.description}
+                                                    onChange={(event) =>
+                                                        setItem(index, {
+                                                            description:
+                                                                event.target
+                                                                    .value,
+                                                        })
+                                                    }
+                                                    placeholder="Ex.: Pintura do para-choque"
+                                                />
+                                            )}
+                                        </Field>
+
+                                        <Field
+                                            id={`items-${index}-amount`}
+                                            label="Valor"
+                                            error={amountError}
+                                        >
+                                            {(field) => (
+                                                <div className="relative">
+                                                    <span
+                                                        aria-hidden="true"
+                                                        className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-sm font-medium"
+                                                    >
+                                                        R$
+                                                    </span>
+                                                    <Input
+                                                        {...field}
+                                                        required
+                                                        inputMode="decimal"
+                                                        value={item.amount}
+                                                        onChange={(event) =>
+                                                            setItem(index, {
+                                                                amount: event
+                                                                    .target
+                                                                    .value,
+                                                            })
+                                                        }
+                                                        onBlur={(event) =>
+                                                            event.target
+                                                                .value &&
+                                                            setItem(index, {
+                                                                amount: centsToInput(
+                                                                    moneyToCents(
+                                                                        event
+                                                                            .target
+                                                                            .value,
+                                                                    ),
+                                                                ),
+                                                            })
+                                                        }
+                                                        placeholder="0,00"
+                                                        className="tabular pl-10 text-right font-semibold"
+                                                    />
+                                                </div>
+                                            )}
+                                        </Field>
+                                    </div>
+                                </li>
+                            );
+                        })}
+                    </ul>
+
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={addItem}
+                        className="mt-3 w-full border-dashed"
+                    >
+                        <Plus aria-hidden="true" />
+                        Adicionar item
+                    </Button>
+
+                    {form.errors.items && (
+                        <FieldError>{form.errors.items}</FieldError>
+                    )}
                 </section>
-                <section className="rounded-2xl border border-stone-200 bg-white p-5">
-                    <div className="mb-4 flex items-center justify-between">
-                        <h2 className="text-lg font-bold">Itens</h2>
-                        <span className="font-bold text-orange-700">
+
+                <FormSection>
+                    <Field
+                        id="notes"
+                        label="Observações"
+                        optional
+                        hint="Aparecem no PDF enviado ao cliente."
+                        error={form.errors.notes}
+                    >
+                        {(field) => (
+                            <Textarea
+                                {...field}
+                                name="notes"
+                                value={form.data.notes}
+                                onChange={(event) =>
+                                    form.setData('notes', event.target.value)
+                                }
+                                placeholder="Ex.: orçamento válido por 7 dias."
+                            />
+                        )}
+                    </Field>
+                </FormSection>
+
+                <div className="border-border bg-card sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] z-10 rounded-2xl border p-4 shadow-lg lg:bottom-4">
+                    <div className="mb-3 flex items-baseline justify-between gap-4">
+                        <span className="text-muted-foreground text-sm font-medium">
+                            Total do orçamento
+                        </span>
+                        <span
+                            className="tabular text-2xl font-bold tracking-tight"
+                            aria-live="polite"
+                        >
                             {formatCurrency(total)}
                         </span>
                     </div>
-                    <div className="space-y-4">
-                        {form.data.items.map((item, index) => (
-                            <div
-                                key={index}
-                                className="rounded-xl bg-stone-50 p-3"
-                            >
-                                <div className="mb-2 flex justify-between">
-                                    <span className="text-sm font-medium">
-                                        Item {index + 1}
-                                    </span>
-                                    {form.data.items.length > 1 && (
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                form.setData(
-                                                    'items',
-                                                    form.data.items.filter(
-                                                        (_, i) => i !== index,
-                                                    ),
-                                                )
-                                            }
-                                            className="flex size-11 items-center justify-center rounded-lg text-red-600 hover:bg-red-50"
-                                            aria-label={`Remover item ${index + 1}`}
-                                        >
-                                            <Trash2 className="size-4" />
-                                        </button>
-                                    )}
-                                </div>
-                                <label className="mb-2 block text-sm font-medium">
-                                    Descrição{' '}
-                                    <span className="text-red-600">*</span>
-                                    <input
-                                        id={`item-${index}-description`}
-                                        required
-                                        value={item.description}
-                                        onChange={(e) =>
-                                            setItem(index, {
-                                                description: e.target.value,
-                                            })
-                                        }
-                                        placeholder="Ex.: Pintura do para-choque"
-                                        aria-invalid={Boolean(
-                                            form.errors[
-                                                `items.${index}.description`
-                                            ],
-                                        )}
-                                        className="mt-1 h-11 w-full rounded-lg border border-stone-300 bg-white px-3 aria-invalid:border-red-500 aria-invalid:ring-2 aria-invalid:ring-red-100"
-                                    />
-                                </label>
-                                {form.errors[`items.${index}.description`] && (
-                                    <small className="mb-2 block text-red-600">
-                                        {
-                                            form.errors[
-                                                `items.${index}.description`
-                                            ]
-                                        }
-                                    </small>
-                                )}
-                                <label className="block text-sm font-medium">
-                                    Valor{' '}
-                                    <span className="text-red-600">*</span>
-                                    <input
-                                        id={`item-${index}-amount`}
-                                        required
-                                        inputMode="decimal"
-                                        value={item.amount}
-                                        onChange={(e) =>
-                                            setItem(index, {
-                                                amount: e.target.value,
-                                            })
-                                        }
-                                        placeholder="0,00"
-                                        aria-invalid={Boolean(
-                                            form.errors[
-                                                `items.${index}.amount`
-                                            ],
-                                        )}
-                                        className="mt-1 h-11 w-full rounded-lg border border-stone-300 bg-white px-3 aria-invalid:border-red-500 aria-invalid:ring-2 aria-invalid:ring-red-100"
-                                    />
-                                </label>
-                                {form.errors[`items.${index}.amount`] && (
-                                    <small className="mt-2 block text-red-600">
-                                        {form.errors[`items.${index}.amount`]}
-                                    </small>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() =>
-                            form.setData('items', [
-                                ...form.data.items,
-                                { description: '', amount: '' },
-                            ])
-                        }
-                        className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-orange-300 font-semibold text-orange-700"
+                    <Button
+                        type="submit"
+                        size="lg"
+                        className="w-full"
+                        loading={form.processing}
                     >
-                        <Plus className="size-5" />
-                        Adicionar item
-                    </button>
-                    {form.errors.items && (
-                        <small className="text-red-600">
-                            {form.errors.items}
-                        </small>
-                    )}
-                </section>
-                <section className="rounded-2xl border border-stone-200 bg-white p-5">
-                    <label className="block font-medium">
-                        Observações{' '}
-                        <span className="font-normal text-stone-400">
-                            (opcional)
-                        </span>
-                        <textarea
-                            value={form.data.notes}
-                            onChange={(e) =>
-                                form.setData('notes', e.target.value)
-                            }
-                            aria-invalid={Boolean(form.errors.notes)}
-                            className="mt-2 min-h-24 w-full rounded-xl border border-stone-300 p-3 aria-invalid:border-red-500 aria-invalid:ring-2 aria-invalid:ring-red-100"
-                            placeholder="Ex.: validade deste orçamento"
-                        />
-                        {form.errors.notes && (
-                            <small className="text-red-600">
-                                {form.errors.notes}
-                            </small>
-                        )}
-                    </label>
-                </section>
-                <div className="sticky bottom-20 rounded-2xl bg-stone-900 p-4 text-white shadow-lg">
-                    <p className="text-sm text-stone-300">Total do orçamento</p>
-                    <p className="mb-3 text-2xl font-bold">
-                        {formatCurrency(total)}
-                    </p>
-                    <button
-                        disabled={form.processing}
-                        className="min-h-12 w-full rounded-xl bg-orange-600 font-bold disabled:opacity-60"
-                    >
-                        {form.processing && (
-                            <LoaderCircle className="mr-2 inline size-4 animate-spin" />
-                        )}
-                        {form.processing ? 'Salvando...' : 'Salvar orçamento'}
-                    </button>
+                        {form.processing
+                            ? 'Salvando...'
+                            : estimate
+                              ? 'Salvar alterações'
+                              : 'Salvar orçamento'}
+                    </Button>
                 </div>
-                <Link
-                    href={estimate ? `/estimates/${estimate.id}` : '/estimates'}
-                    className="block pb-3 text-center font-medium text-stone-600"
-                >
-                    Cancelar
-                </Link>
+
+                <div className="pt-1 text-center">
+                    <Button asChild variant="ghost">
+                        <Link
+                            href={
+                                estimate
+                                    ? `/estimates/${estimate.id}`
+                                    : '/estimates'
+                            }
+                        >
+                            Cancelar
+                        </Link>
+                    </Button>
+                </div>
             </form>
         </>
     );

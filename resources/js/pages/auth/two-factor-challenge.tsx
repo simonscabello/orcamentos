@@ -106,8 +106,9 @@ export default function TwoFactorChallenge() {
 
                             <Button
                                 type="submit"
+                                size="lg"
                                 className="w-full"
-                                disabled={processing}
+                                loading={processing}
                             >
                                 {processing ? 'Verificando...' : 'Continuar'}
                             </Button>
@@ -116,7 +117,7 @@ export default function TwoFactorChallenge() {
                                 <span>ou você pode </span>
                                 <button
                                     type="button"
-                                    className="text-foreground cursor-pointer underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
+                                    className="text-foreground hover:text-primary rounded-sm font-medium underline-offset-4 transition-colors hover:underline"
                                     onClick={() =>
                                         toggleRecoveryMode(clearErrors)
                                     }

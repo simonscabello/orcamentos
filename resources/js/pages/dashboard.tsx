@@ -1,87 +1,93 @@
 import { Head, Link } from '@inertiajs/react';
-import { ArrowRight, Plus } from 'lucide-react';
-import { formatCurrency } from '@/lib/format';
+import { FileText, Plus, UserPlus } from 'lucide-react';
 
-type Estimate = {
-    id: number;
-    number: number;
-    total: number;
-    customer: { name: string };
-    vehicle: { model: string };
+import {
+    EstimateListItem,
+    type EstimateListItemData,
+} from '@/components/estimate-list-item';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { firstName, greeting } from '@/lib/format';
+
+type Props = {
+    business: { owner_name?: string; name: string };
+    estimates: EstimateListItemData[];
 };
 
-export default function Dashboard({
-    business,
-    estimates,
-}: {
-    business: { owner_name?: string; name: string };
-    estimates: Estimate[];
-}) {
+export default function Dashboard({ business, estimates }: Props) {
+    const name = firstName(business.owner_name);
+
     return (
         <>
             <Head title="Início" />
-            <section className="mb-6">
-                <p className="text-sm text-stone-500">{business.name}</p>
-                <h1 className="text-3xl font-bold">
-                    Olá, {business.owner_name?.split(' ')[0] || 'você'}
+
+            <header className="mb-6">
+                <p className="text-muted-foreground truncate text-sm">
+                    {business.name}
+                </p>
+                <h1 className="sm:text-display text-2xl font-bold tracking-tight">
+                    {greeting()}
+                    {name ? `, ${name}` : ''}
                 </h1>
-            </section>
-            <Link
-                href="/estimates/create"
-                className="flex min-h-16 w-full items-center justify-center gap-2 rounded-2xl bg-orange-600 px-5 text-lg font-bold text-white shadow-sm active:bg-orange-700"
-            >
-                <Plus className="size-6" />
-                NOVO ORÇAMENTO
-            </Link>
-            <section className="mt-8">
-                <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-lg font-bold">Orçamentos recentes</h2>
-                    <Link
-                        href="/estimates"
-                        className="text-sm font-semibold text-orange-700"
-                    >
-                        Ver todos
+                <p className="text-muted-foreground mt-1 text-sm">
+                    Monte um orçamento em poucos toques e envie para o cliente.
+                </p>
+            </header>
+
+            <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
+                <Button asChild size="xl" className="w-full">
+                    <Link href="/estimates/create">
+                        <Plus aria-hidden="true" />
+                        Novo orçamento
                     </Link>
+                </Button>
+                <Button asChild variant="outline" size="xl" className="w-full">
+                    <Link href="/customers/create">
+                        <UserPlus aria-hidden="true" />
+                        Novo cliente
+                    </Link>
+                </Button>
+            </div>
+
+            <section className="mt-8">
+                <div className="mb-3 flex items-baseline justify-between gap-4">
+                    <h2 className="text-base font-semibold">
+                        Orçamentos recentes
+                    </h2>
+                    {estimates.length > 0 && (
+                        <Link
+                            href="/estimates"
+                            className="text-primary rounded-sm text-sm font-semibold hover:underline"
+                        >
+                            Ver todos
+                        </Link>
+                    )}
                 </div>
-                <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
+
+                <div className="border-border bg-card overflow-hidden rounded-2xl border">
                     {estimates.length ? (
-                        estimates.map((estimate) => (
-                            <Link
-                                key={estimate.id}
-                                href={`/estimates/${estimate.id}`}
-                                className="flex items-center gap-3 border-b border-stone-100 p-4 last:border-0"
-                            >
-                                <div className="min-w-0 flex-1">
-                                    <p className="font-bold">
-                                        #
-                                        {String(estimate.number).padStart(
-                                            3,
-                                            '0',
-                                        )}{' '}
-                                        · {estimate.vehicle.model}
-                                    </p>
-                                    <p className="text-sm text-stone-500">
-                                        {estimate.customer.name}
-                                    </p>
-                                </div>
-                                <p className="text-sm font-bold">
-                                    {formatCurrency(estimate.total)}
-                                </p>
-                                <ArrowRight className="size-4 text-stone-400" />
-                            </Link>
-                        ))
+                        <ul className="divide-border divide-y">
+                            {estimates.map((estimate) => (
+                                <EstimateListItem
+                                    key={estimate.id}
+                                    estimate={estimate}
+                                />
+                            ))}
+                        </ul>
                     ) : (
-                        <div className="space-y-3 p-6 text-center text-sm">
-                            <p className="text-stone-500">
-                                Você ainda não criou nenhum orçamento.
-                            </p>
-                            <Link
-                                href="/estimates/create"
-                                className="inline-flex min-h-11 items-center rounded-xl border border-orange-300 px-4 font-semibold text-orange-700"
-                            >
-                                Criar primeiro orçamento
-                            </Link>
-                        </div>
+                        <EmptyState
+                            icon={FileText}
+                            title="Nenhum orçamento ainda"
+                            description="Crie o primeiro orçamento e ele aparecerá aqui."
+                            action={
+                                <Button asChild>
+                                    <Link href="/estimates/create">
+                                        <Plus aria-hidden="true" />
+                                        Novo orçamento
+                                    </Link>
+                                </Button>
+                            }
+                        />
                     )}
                 </div>
             </section>

@@ -1,14 +1,13 @@
 import { Form, Head } from '@inertiajs/react';
 import { useRef } from 'react';
+
 import SecurityController from '@/actions/App/Http/Controllers/Settings/SecurityController';
 import Heading from '@/components/heading';
-import InputError from '@/components/input-error';
-import PasswordInput from '@/components/password-input';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { edit } from '@/routes/security';
 import type { Props as ManageTwoFactorProps } from '@/components/manage-two-factor';
 import ManageTwoFactor from '@/components/manage-two-factor';
+import PasswordInput from '@/components/password-input';
+import { Button } from '@/components/ui/button';
+import { Field } from '@/components/ui/field';
 
 // oxfmt-ignore
 type Props = {
@@ -23,20 +22,15 @@ export default function Security(props: Props) {
         <>
             <Head title="Segurança" />
 
-            <h1 className="sr-only">Segurança</h1>
-
-            <div className="space-y-6">
+            <section className="space-y-6">
                 <Heading
-                    variant="small"
                     title="Alterar senha"
                     description="Use uma senha longa e difícil de adivinhar."
                 />
 
                 <Form
                     {...SecurityController.update.form()}
-                    options={{
-                        preserveScroll: true,
-                    }}
+                    options={{ preserveScroll: true }}
                     resetOnError={[
                         'password',
                         'password_confirmation',
@@ -52,74 +46,72 @@ export default function Security(props: Props) {
                             currentPasswordInput.current?.focus();
                         }
                     }}
-                    className="space-y-6"
+                    className="border-border bg-card space-y-5 rounded-2xl border p-4 sm:p-5"
                 >
                     {({ errors, processing }) => (
                         <>
-                            <div className="grid gap-2">
-                                <Label htmlFor="current_password">
-                                    Senha atual
-                                </Label>
+                            <Field
+                                id="current_password"
+                                label="Senha atual"
+                                error={errors.current_password}
+                            >
+                                {(field) => (
+                                    <PasswordInput
+                                        {...field}
+                                        ref={currentPasswordInput}
+                                        name="current_password"
+                                        autoComplete="current-password"
+                                        placeholder="Sua senha atual"
+                                    />
+                                )}
+                            </Field>
 
-                                <PasswordInput
-                                    id="current_password"
-                                    ref={currentPasswordInput}
-                                    name="current_password"
-                                    className="mt-1 block w-full"
-                                    autoComplete="current-password"
-                                    placeholder="Sua senha atual"
-                                />
+                            <Field
+                                id="password"
+                                label="Nova senha"
+                                error={errors.password}
+                            >
+                                {(field) => (
+                                    <PasswordInput
+                                        {...field}
+                                        ref={passwordInput}
+                                        name="password"
+                                        autoComplete="new-password"
+                                        placeholder="Sua nova senha"
+                                        passwordrules={props.passwordRules}
+                                    />
+                                )}
+                            </Field>
 
-                                <InputError message={errors.current_password} />
-                            </div>
+                            <Field
+                                id="password_confirmation"
+                                label="Confirmar nova senha"
+                                error={errors.password_confirmation}
+                            >
+                                {(field) => (
+                                    <PasswordInput
+                                        {...field}
+                                        name="password_confirmation"
+                                        autoComplete="new-password"
+                                        placeholder="Repita a nova senha"
+                                        passwordrules={props.passwordRules}
+                                    />
+                                )}
+                            </Field>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="password">Nova senha</Label>
-
-                                <PasswordInput
-                                    id="password"
-                                    ref={passwordInput}
-                                    name="password"
-                                    className="mt-1 block w-full"
-                                    autoComplete="new-password"
-                                    placeholder="Sua nova senha"
-                                    passwordrules={props.passwordRules}
-                                />
-
-                                <InputError message={errors.password} />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label htmlFor="password_confirmation">
-                                    Confirmar nova senha
-                                </Label>
-
-                                <PasswordInput
-                                    id="password_confirmation"
-                                    name="password_confirmation"
-                                    className="mt-1 block w-full"
-                                    autoComplete="new-password"
-                                    placeholder="Repita a nova senha"
-                                    passwordrules={props.passwordRules}
-                                />
-
-                                <InputError
-                                    message={errors.password_confirmation}
-                                />
-                            </div>
-
-                            <div className="flex items-center gap-4">
-                                <Button
-                                    disabled={processing}
-                                    data-test="update-password-button"
-                                >
-                                    {processing ? 'Salvando...' : 'Salvar'}
-                                </Button>
-                            </div>
+                            <Button
+                                type="submit"
+                                size="lg"
+                                loading={processing}
+                                className="w-full sm:w-auto"
+                                data-test="update-password-button"
+                            >
+                                {processing ? 'Salvando...' : 'Salvar senha'}
+                            </Button>
                         </>
                     )}
                 </Form>
-            </div>
+            </section>
 
             <ManageTwoFactor
                 canManageTwoFactor={props.canManageTwoFactor}
@@ -129,12 +121,3 @@ export default function Security(props: Props) {
         </>
     );
 }
-
-Security.layout = {
-    breadcrumbs: [
-        {
-            title: 'Segurança',
-            href: edit(),
-        },
-    ],
-};

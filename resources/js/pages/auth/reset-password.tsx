@@ -1,10 +1,9 @@
 import { Form, Head } from '@inertiajs/react';
-import InputError from '@/components/input-error';
+
 import PasswordInput from '@/components/password-input';
 import { Button } from '@/components/ui/button';
+import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Spinner } from '@/components/ui/spinner';
 import { update } from '@/routes/password';
 
 type Props = {
@@ -22,68 +21,67 @@ export default function ResetPassword({ token, email, passwordRules }: Props) {
                 {...update.form()}
                 transform={(data) => ({ ...data, token, email })}
                 resetOnSuccess={['password', 'password_confirmation']}
+                className="space-y-5"
             >
                 {({ processing, errors }) => (
-                    <div className="grid gap-6">
-                        <div className="grid gap-2">
-                            <Label htmlFor="email">E-mail</Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                name="email"
-                                autoComplete="email"
-                                value={email}
-                                className="mt-1 block w-full"
-                                readOnly
-                            />
-                            <InputError
-                                message={errors.email}
-                                className="mt-2"
-                            />
-                        </div>
+                    <>
+                        <Field id="email" label="E-mail" error={errors.email}>
+                            {(field) => (
+                                <Input
+                                    {...field}
+                                    type="email"
+                                    name="email"
+                                    autoComplete="email"
+                                    value={email}
+                                    readOnly
+                                    className="bg-muted text-muted-foreground"
+                                />
+                            )}
+                        </Field>
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="password">Nova senha</Label>
-                            <PasswordInput
-                                id="password"
-                                name="password"
-                                autoComplete="new-password"
-                                className="mt-1 block w-full"
-                                autoFocus
-                                placeholder="Nova senha"
-                                passwordrules={passwordRules}
-                            />
-                            <InputError message={errors.password} />
-                        </div>
+                        <Field
+                            id="password"
+                            label="Nova senha"
+                            error={errors.password}
+                        >
+                            {(field) => (
+                                <PasswordInput
+                                    {...field}
+                                    name="password"
+                                    autoComplete="new-password"
+                                    autoFocus
+                                    placeholder="Nova senha"
+                                    passwordrules={passwordRules}
+                                />
+                            )}
+                        </Field>
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="password_confirmation">
-                                Confirmar senha
-                            </Label>
-                            <PasswordInput
-                                id="password_confirmation"
-                                name="password_confirmation"
-                                autoComplete="new-password"
-                                className="mt-1 block w-full"
-                                placeholder="Repita a nova senha"
-                                passwordrules={passwordRules}
-                            />
-                            <InputError
-                                message={errors.password_confirmation}
-                                className="mt-2"
-                            />
-                        </div>
+                        <Field
+                            id="password_confirmation"
+                            label="Confirmar senha"
+                            error={errors.password_confirmation}
+                        >
+                            {(field) => (
+                                <PasswordInput
+                                    {...field}
+                                    name="password_confirmation"
+                                    autoComplete="new-password"
+                                    placeholder="Repita a nova senha"
+                                    passwordrules={passwordRules}
+                                />
+                            )}
+                        </Field>
 
                         <Button
                             type="submit"
-                            className="mt-4 w-full"
-                            disabled={processing}
+                            size="lg"
+                            className="w-full"
+                            loading={processing}
                             data-test="reset-password-button"
                         >
-                            {processing && <Spinner />}
-                            Redefinir senha
+                            {processing ? 'Salvando...' : 'Redefinir senha'}
                         </Button>
-                    </div>
+                    </>
                 )}
             </Form>
         </>

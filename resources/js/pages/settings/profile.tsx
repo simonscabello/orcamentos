@@ -1,15 +1,13 @@
-import { Form, Head, usePage } from '@inertiajs/react';
-import { Link } from '@inertiajs/react';
+import { Form, Head, Link, usePage } from '@inertiajs/react';
+
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import DeleteUser from '@/components/delete-user';
 import Heading from '@/components/heading';
-import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
+import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { edit } from '@/routes/profile';
-import type { Auth } from '@/types';
 import { send } from '@/routes/verification';
+import type { Auth } from '@/types';
 
 type PageProps = {
     auth: Auth;
@@ -28,111 +26,88 @@ export default function Profile({
         <>
             <Head title="Perfil" />
 
-            <h1 className="sr-only">Perfil</h1>
-
-            <div className="space-y-6">
+            <section className="space-y-6">
                 <Heading
-                    variant="small"
-                    title="Perfil"
-                    description="Atualize seu nome e e-mail."
+                    title="Seu perfil"
+                    description="Nome e e-mail usados para acessar o sistema."
                 />
 
                 <Form
                     {...ProfileController.update.form()}
-                    options={{
-                        preserveScroll: true,
-                    }}
-                    className="space-y-6"
+                    options={{ preserveScroll: true }}
+                    className="border-border bg-card space-y-5 rounded-2xl border p-4 sm:p-5"
                 >
                     {({ processing, errors }) => (
                         <>
-                            <div className="grid gap-2">
-                                <Label htmlFor="name">Nome</Label>
+                            <Field id="name" label="Nome" error={errors.name}>
+                                {(field) => (
+                                    <Input
+                                        {...field}
+                                        name="name"
+                                        defaultValue={auth.user.name}
+                                        required
+                                        autoComplete="name"
+                                        placeholder="Seu nome"
+                                    />
+                                )}
+                            </Field>
 
-                                <Input
-                                    id="name"
-                                    className="mt-1 block w-full"
-                                    defaultValue={auth.user.name}
-                                    name="name"
-                                    required
-                                    autoComplete="name"
-                                    placeholder="Seu nome"
-                                />
-
-                                <InputError
-                                    className="mt-2"
-                                    message={errors.name}
-                                />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label htmlFor="email">E-mail</Label>
-
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    className="mt-1 block w-full"
-                                    defaultValue={auth.user.email}
-                                    name="email"
-                                    required
-                                    autoComplete="username"
-                                    placeholder="voce@exemplo.com"
-                                />
-
-                                <InputError
-                                    className="mt-2"
-                                    message={errors.email}
-                                />
-                            </div>
+                            <Field
+                                id="email"
+                                label="E-mail"
+                                error={errors.email}
+                            >
+                                {(field) => (
+                                    <Input
+                                        {...field}
+                                        type="email"
+                                        name="email"
+                                        defaultValue={auth.user.email}
+                                        required
+                                        autoComplete="username"
+                                        placeholder="voce@exemplo.com"
+                                    />
+                                )}
+                            </Field>
 
                             {mustVerifyEmail &&
                                 auth.user.email_verified_at === null && (
-                                    <div>
-                                        <p className="text-muted-foreground -mt-4 text-sm">
+                                    <div className="border-border bg-warning-soft/60 rounded-xl border p-3 text-sm">
+                                        <p className="text-foreground">
                                             Seu e-mail ainda não foi verificado.{' '}
                                             <Link
                                                 href={send()}
                                                 as="button"
-                                                className="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
+                                                className="text-primary font-semibold underline-offset-4 hover:underline"
                                             >
-                                                Reenviar o e-mail de
-                                                verificação.
+                                                Reenviar verificação
                                             </Link>
                                         </p>
-
                                         {status ===
                                             'verification-link-sent' && (
-                                            <div className="mt-2 text-sm font-medium text-green-600">
+                                            <p className="text-success mt-2 font-medium">
                                                 Enviamos um novo link de
                                                 verificação para seu e-mail.
-                                            </div>
+                                            </p>
                                         )}
                                     </div>
                                 )}
 
-                            <div className="flex items-center gap-4">
-                                <Button
-                                    disabled={processing}
-                                    data-test="update-profile-button"
-                                >
-                                    {processing ? 'Salvando...' : 'Salvar'}
-                                </Button>
-                            </div>
+                            <Button
+                                type="submit"
+                                size="lg"
+                                loading={processing}
+                                className="w-full sm:w-auto"
+                                data-test="update-profile-button"
+                            >
+                                {processing ? 'Salvando...' : 'Salvar'}
+                            </Button>
                         </>
                     )}
                 </Form>
-            </div>
+            </section>
 
             <DeleteUser />
         </>
     );
 }
-
-Profile.layout = {
-    breadcrumbs: [
-        {
-            title: 'Perfil',
-            href: edit(),
-        },
-    ],
-};

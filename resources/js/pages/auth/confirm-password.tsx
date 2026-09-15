@@ -1,9 +1,8 @@
 import { Form, Head } from '@inertiajs/react';
-import InputError from '@/components/input-error';
+
 import PasswordInput from '@/components/password-input';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Spinner } from '@/components/ui/spinner';
+import { Field } from '@/components/ui/field';
 import { store } from '@/routes/password/confirm';
 
 export default function ConfirmPassword() {
@@ -11,33 +10,39 @@ export default function ConfirmPassword() {
         <>
             <Head title="Confirmar senha" />
 
-            <Form {...store.form()} resetOnSuccess={['password']}>
+            <Form
+                {...store.form()}
+                resetOnSuccess={['password']}
+                className="space-y-5"
+            >
                 {({ processing, errors }) => (
-                    <div className="space-y-6">
-                        <div className="grid gap-2">
-                            <Label htmlFor="password">Senha</Label>
-                            <PasswordInput
-                                id="password"
-                                name="password"
-                                placeholder="Sua senha"
-                                autoComplete="current-password"
-                                autoFocus
-                            />
+                    <>
+                        <Field
+                            id="password"
+                            label="Senha"
+                            error={errors.password}
+                        >
+                            {(field) => (
+                                <PasswordInput
+                                    {...field}
+                                    name="password"
+                                    placeholder="Sua senha"
+                                    autoComplete="current-password"
+                                    autoFocus
+                                />
+                            )}
+                        </Field>
 
-                            <InputError message={errors.password} />
-                        </div>
-
-                        <div className="flex items-center">
-                            <Button
-                                className="w-full"
-                                disabled={processing}
-                                data-test="confirm-password-button"
-                            >
-                                {processing && <Spinner />}
-                                Confirmar senha
-                            </Button>
-                        </div>
-                    </div>
+                        <Button
+                            type="submit"
+                            size="lg"
+                            className="w-full"
+                            loading={processing}
+                            data-test="confirm-password-button"
+                        >
+                            {processing ? 'Confirmando...' : 'Confirmar senha'}
+                        </Button>
+                    </>
                 )}
             </Form>
         </>

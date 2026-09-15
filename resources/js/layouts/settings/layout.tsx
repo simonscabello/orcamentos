@@ -1,78 +1,77 @@
-import { Link } from '@inertiajs/react';
-import type { PropsWithChildren } from 'react';
-import Heading from '@/components/heading';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { useCurrentUrl } from '@/hooks/use-current-url';
-import { cn, toUrl } from '@/lib/utils';
-import { edit as editAppearance } from '@/routes/appearance';
-import { edit } from '@/routes/profile';
-import { edit as editSecurity } from '@/routes/security';
-import type { NavItem } from '@/types';
+import { Link, router, usePage } from '@inertiajs/react';
+import { LogOut } from 'lucide-react';
+import { useState, type PropsWithChildren } from 'react';
 
-const sidebarNavItems: NavItem[] = [
-    {
-        title: 'Perfil',
-        href: edit(),
-        icon: null,
-    },
-    {
-        title: 'Segurança',
-        href: editSecurity(),
-        icon: null,
-    },
-    {
-        title: 'Aparência',
-        href: editAppearance(),
-        icon: null,
-    },
+import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/ui/page-header';
+import { cn } from '@/lib/utils';
+
+const tabs = [
+    { label: 'Oficina', href: '/settings/business' },
+    { label: 'Perfil', href: '/settings/profile' },
+    { label: 'Segurança', href: '/settings/security' },
+    { label: 'Aparência', href: '/settings/appearance' },
 ];
 
 export default function SettingsLayout({ children }: PropsWithChildren) {
-    const { isCurrentOrParentUrl } = useCurrentUrl();
+    const { url } = usePage();
+    const pathname = url.split('?')[0];
+    const [loggingOut, setLoggingOut] = useState(false);
+
+    const logout = () => {
+        setLoggingOut(true);
+        router.post('/logout', {}, { onFinish: () => setLoggingOut(false) });
+    };
 
     return (
-        <div className="px-4 py-6">
-            <Heading
-                title="Configurações da conta"
-                description="Gerencie seu perfil, senha e aparência."
+        <>
+            <PageHeader
+                title="Ajustes"
+                description="Dados da oficina, conta e preferências."
             />
 
-            <div className="flex flex-col lg:flex-row lg:space-x-12">
-                <aside className="w-full max-w-xl lg:w-48">
-                    <nav
-                        className="flex flex-col space-y-1 space-x-0"
-                        aria-label="Configurações da conta"
-                    >
-                        {sidebarNavItems.map((item, index) => (
-                            <Button
-                                key={`${toUrl(item.href)}-${index}`}
-                                size="sm"
-                                variant="ghost"
-                                asChild
-                                className={cn('w-full justify-start', {
-                                    'bg-muted': isCurrentOrParentUrl(item.href),
-                                })}
-                            >
-                                <Link href={item.href}>
-                                    {item.icon && (
-                                        <item.icon className="h-4 w-4" />
+            <nav
+                aria-label="Seções dos ajustes"
+                className="-mx-4 mb-6 overflow-x-auto px-4 sm:mx-0 sm:px-0"
+            >
+                <ul className="bg-muted flex w-max gap-1 rounded-xl p-1 sm:w-full">
+                    {tabs.map((tab) => {
+                        const active = pathname.startsWith(tab.href);
+
+                        return (
+                            <li key={tab.href} className="sm:flex-1">
+                                <Link
+                                    href={tab.href}
+                                    aria-current={active ? 'page' : undefined}
+                                    className={cn(
+                                        'flex min-h-10 items-center justify-center rounded-lg px-4 text-sm font-medium transition-colors',
+                                        active
+                                            ? 'bg-card text-foreground shadow-xs'
+                                            : 'text-muted-foreground hover:text-foreground',
                                     )}
-                                    {item.title}
+                                >
+                                    {tab.label}
                                 </Link>
-                            </Button>
-                        ))}
-                    </nav>
-                </aside>
+                            </li>
+                        );
+                    })}
+                </ul>
+            </nav>
 
-                <Separator className="my-6 lg:hidden" />
+            <div className="space-y-8">{children}</div>
 
-                <div className="flex-1 md:max-w-2xl">
-                    <section className="max-w-xl space-y-12">
-                        {children}
-                    </section>
-                </div>
+            <div className="border-border mt-10 border-t pt-6">
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={logout}
+                    loading={loggingOut}
+                    className="w-full sm:w-auto"
+                >
+                    {!loggingOut && <LogOut aria-hidden="true" />}
+                    Sair da conta
+                </Button>
             </div>
-        </div>
+        </>
     );
 }

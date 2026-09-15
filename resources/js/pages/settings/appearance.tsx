@@ -1,32 +1,22 @@
 import { Head } from '@inertiajs/react';
+
 import AppearanceTabs from '@/components/appearance-tabs';
 import Heading from '@/components/heading';
-import { edit as editAppearance } from '@/routes/appearance';
 
 export default function Appearance() {
     return (
         <>
             <Head title="Aparência" />
 
-            <h1 className="sr-only">Aparência</h1>
-
-            <div className="space-y-6">
+            <section className="space-y-6">
                 <Heading
-                    variant="small"
                     title="Aparência"
-                    description="Escolha como o sistema aparece para você."
+                    description="Escolha como o sistema aparece no seu aparelho."
                 />
-                <AppearanceTabs />
-            </div>
+                <div className="border-border bg-card rounded-2xl border p-4 sm:p-5">
+                    <AppearanceTabs />
+                </div>
+            </section>
         </>
     );
 }
-
-Appearance.layout = {
-    breadcrumbs: [
-        {
-            title: 'Aparência',
-            href: editAppearance(),
-        },
-    ],
-};
