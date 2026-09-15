@@ -1,40 +1,48 @@
-import { Link } from '@inertiajs/react';
-import { FileText } from 'lucide-react';
+import { Link, usePage } from '@inertiajs/react';
 
+import { BrandMark } from '@/components/brand-mark';
 import { cn } from '@/lib/utils';
 
-/** Marca do produto: ícone + nome. Usada no cabeçalho, no menu e no login. */
+/**
+ * Marca do produto (símbolo + nome). O nome vem de APP_NAME via Inertia,
+ * então trocar a marca não exige mexer nos componentes.
+ */
 export function AppBrand({
     className,
     size = 'md',
     asLink = true,
+    showName = true,
 }: {
     className?: string;
     size?: 'md' | 'lg';
     asLink?: boolean;
+    showName?: boolean;
 }) {
+    const { name } = usePage().props;
+
     const content = (
         <>
             <span
                 className={cn(
-                    'bg-primary text-primary-foreground flex items-center justify-center rounded-xl',
-                    size === 'lg' ? 'size-12 rounded-2xl' : 'size-9',
+                    'bg-primary text-primary-foreground flex items-center justify-center',
+                    size === 'lg'
+                        ? 'size-12 rounded-2xl'
+                        : 'size-9 rounded-[0.625rem]',
                 )}
             >
-                <FileText
-                    className={size === 'lg' ? 'size-6' : 'size-5'}
-                    aria-hidden="true"
-                />
+                <BrandMark className={size === 'lg' ? 'size-7' : 'size-5'} />
             </span>
-            <span
-                translate="no"
-                className={cn(
-                    'text-foreground font-bold tracking-tight',
-                    size === 'lg' ? 'text-xl' : 'text-base',
-                )}
-            >
-                Orçamentos
-            </span>
+            {showName && (
+                <span
+                    translate="no"
+                    className={cn(
+                        'text-foreground font-bold tracking-tight',
+                        size === 'lg' ? 'text-xl' : 'text-base',
+                    )}
+                >
+                    {name}
+                </span>
+            )}
         </>
     );
 
@@ -49,7 +57,7 @@ export function AppBrand({
     return (
         <Link
             href="/dashboard"
-            aria-label="Ir para o início"
+            aria-label={`${name} — ir para o início`}
             className={cn(
                 'flex items-center gap-2.5 rounded-xl transition-opacity hover:opacity-80',
                 className,

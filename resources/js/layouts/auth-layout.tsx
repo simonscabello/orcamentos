@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 
 import { AppBrand } from '@/components/app-brand';
@@ -12,6 +12,8 @@ export default function AuthLayout({
     description?: string;
     children: ReactNode;
 }) {
+    const { tagline } = usePage().props;
+
     return (
         <div className="bg-background pt-safe text-foreground flex min-h-dvh flex-col px-4">
             <Head>
@@ -42,7 +44,7 @@ export default function AuthLayout({
                 </div>
 
                 <p className="text-muted-foreground mt-8 text-center text-xs">
-                    Orçamentos para oficinas · feito para usar no celular
+                    {tagline} · feito para usar no celular
                 </p>
             </div>
         </div>

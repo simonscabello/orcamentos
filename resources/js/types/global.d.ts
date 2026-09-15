@@ -10,6 +10,7 @@ declare module '@inertiajs/core' {
     export interface InertiaConfig {
         sharedPageProps: {
             name: string;
+            tagline: string;
             auth: Auth;
             [key: string]: unknown;
         };
