@@ -1,14 +1,18 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FormSection } from '@/components/ui/field';
 import { Input, Select, Textarea } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
+import { focusFirstError } from '@/lib/form-errors';
 import {
     centsToInput,
     formatCurrency,
+    formatEstimateNumber,
     formatPhone,
     moneyToCents,
 } from '@/lib/format';
@@ -31,6 +35,21 @@ type Estimate = {
     items: { description: string; amount: number }[];
 };
 type Item = { description: string; amount: string };
+type Status = 'draft' | 'sent';
+type DuplicateOf = {
+    number: number;
+    notes?: string | null;
+    items: { description: string; amount: number }[];
+};
+
+const statusOptions: { value: Status; label: string; hint: string }[] = [
+    {
+        value: 'draft',
+        label: 'Rascunho',
+        hint: 'Ainda não foi enviado ao cliente.',
+    },
+    { value: 'sent', label: 'Enviado', hint: 'O cliente já recebeu o PDF.' },
+];
 
 export default function EstimateForm({
     estimate,
@@ -38,12 +57,16 @@ export default function EstimateForm({
     vehicles,
     selectedCustomerId,
     selectedVehicleId,
+    itemSuggestions = [],
+    duplicateOf,
 }: {
     estimate?: Estimate;
     customers: Customer[];
     vehicles: Vehicle[];
     selectedCustomerId?: number | null;
     selectedVehicleId?: number | null;
+    itemSuggestions?: string[];
+    duplicateOf?: DuplicateOf | null;
 }) {
     // Sem cliente pré-selecionado: só vem preenchido ao editar ou quando a tela de origem indicou o cliente/veículo.
     const initialCustomerId = String(
@@ -63,17 +86,18 @@ export default function EstimateForm({
                     : ''),
         ),
         date: estimate?.date || new Date().toISOString().slice(0, 10),
-        status: estimate?.status || 'draft',
-        notes: estimate?.notes || '',
-        items: estimate
-            ? estimate.items.map((item) => ({
-                  ...item,
-                  amount: centsToInput(item.amount),
-              }))
-            : ([{ description: '', amount: '' }] as Item[]),
+        status: (estimate?.status || 'draft') as Status,
+        notes: estimate?.notes || duplicateOf?.notes || '',
+        items: (estimate?.items ?? duplicateOf?.items)?.map((item) => ({
+            description: item.description,
+            amount: centsToInput(item.amount),
+        })) ?? [{ description: '', amount: '' } as Item],
     });
 
+    useUnsavedChanges(form.isDirty && !form.processing);
+
     const descriptionRefs = useRef<(HTMLInputElement | null)[]>([]);
+    const amountRefs = useRef<(HTMLInputElement | null)[]>([]);
     const focusIndex = useRef<number | null>(null);
 
     const options = vehicles.filter(
@@ -108,11 +132,47 @@ export default function EstimateForm({
         ]);
     };
 
-    const removeItem = (index: number) =>
+    // Remoção imediata, com opção de desfazer: evita um diálogo de confirmação a cada item.
+    const removeItem = (index: number) => {
+        const removed = form.data.items[index];
+
         form.setData(
             'items',
             form.data.items.filter((_, i) => i !== index),
         );
+
+        toast(`Item ${index + 1} removido.`, {
+            action: {
+                label: 'Desfazer',
+                onClick: () =>
+                    form.setData((data) => {
+                        const items = [...data.items];
+                        items.splice(index, 0, removed);
+
+                        return { ...data, items };
+                    }),
+            },
+        });
+    };
+
+    // No teclado do celular, "Enter" avança para o próximo campo em vez de salvar o orçamento pela metade.
+    const onItemKeyDown = (
+        event: React.KeyboardEvent<HTMLInputElement>,
+        index: number,
+        field: 'description' | 'amount',
+    ) => {
+        if (event.key !== 'Enter') return;
+
+        event.preventDefault();
+
+        if (field === 'description') {
+            amountRefs.current[index]?.focus();
+        } else if (index < form.data.items.length - 1) {
+            descriptionRefs.current[index + 1]?.focus();
+        } else {
+            addItem();
+        }
+    };
 
     const selectCustomer = (customerId: string) => {
         const customerVehicles = vehicles.filter(
@@ -140,8 +200,10 @@ export default function EstimateForm({
             })),
         }));
 
-        if (estimate) form.put(`/estimates/${estimate.id}`);
-        else form.post('/estimates');
+        const visitOptions = { onError: focusFirstError };
+
+        if (estimate) form.put(`/estimates/${estimate.id}`, visitOptions);
+        else form.post('/estimates', visitOptions);
     };
 
     const customerHasNoVehicle = Boolean(
@@ -154,7 +216,11 @@ export default function EstimateForm({
 
             <PageHeader
                 title={estimate ? 'Editar orçamento' : 'Novo orçamento'}
-                description="Escolha o cliente, liste os serviços e salve."
+                description={
+                    duplicateOf
+                        ? `Cópia do orçamento ${formatEstimateNumber(duplicateOf.number)}. Revise os dados e salve.`
+                        : 'Escolha o cliente, liste os serviços e salve.'
+                }
                 backHref={estimate ? `/estimates/${estimate.id}` : '/estimates'}
             />
 
@@ -195,7 +261,7 @@ export default function EstimateForm({
                         className="text-primary -mt-3 inline-flex min-h-9 items-center gap-1 rounded-lg text-sm font-semibold hover:underline"
                     >
                         <Plus className="size-4" aria-hidden="true" />
-                        Cadastrar cliente
+                        Novo cliente
                     </Link>
 
                     <Field
@@ -243,7 +309,7 @@ export default function EstimateForm({
                         className="text-primary -mt-3 inline-flex min-h-9 items-center gap-1 rounded-lg text-sm font-semibold hover:underline"
                     >
                         <Plus className="size-4" aria-hidden="true" />
-                        Cadastrar veículo
+                        Novo veículo
                     </Link>
 
                     <Field id="date" label="Data" error={form.errors.date}>
@@ -263,15 +329,30 @@ export default function EstimateForm({
                 </FormSection>
 
                 <section className="border-border bg-card rounded-2xl border p-4 sm:p-5">
-                    <header className="mb-4 flex items-baseline justify-between gap-4">
-                        <h2 className="text-base font-semibold">
-                            Itens do orçamento
-                        </h2>
-                        <span className="text-muted-foreground text-sm">
-                            {form.data.items.length}{' '}
-                            {form.data.items.length === 1 ? 'item' : 'itens'}
-                        </span>
+                    <header className="mb-4">
+                        <div className="flex items-baseline justify-between gap-4">
+                            <h2 className="text-base font-semibold">
+                                Itens do orçamento
+                            </h2>
+                            <span className="text-muted-foreground text-sm">
+                                {form.data.items.length}{' '}
+                                {form.data.items.length === 1
+                                    ? 'item'
+                                    : 'itens'}
+                            </span>
+                        </div>
+                        <p className="text-muted-foreground mt-0.5 text-sm">
+                            Use vírgula para os centavos, como em 1.250,00.
+                        </p>
                     </header>
+
+                    {itemSuggestions.length > 0 && (
+                        <datalist id="item-suggestions">
+                            {itemSuggestions.map((suggestion) => (
+                                <option key={suggestion} value={suggestion} />
+                            ))}
+                        </datalist>
+                    )}
 
                     <ul className="space-y-3">
                         {form.data.items.map((item, index) => {
@@ -320,6 +401,20 @@ export default function EstimateForm({
                                                         ] = element;
                                                     }}
                                                     required
+                                                    list={
+                                                        itemSuggestions.length
+                                                            ? 'item-suggestions'
+                                                            : undefined
+                                                    }
+                                                    autoComplete="off"
+                                                    enterKeyHint="next"
+                                                    onKeyDown={(event) =>
+                                                        onItemKeyDown(
+                                                            event,
+                                                            index,
+                                                            'description',
+                                                        )
+                                                    }
                                                     value={item.description}
                                                     onChange={(event) =>
                                                         setItem(index, {
@@ -348,8 +443,28 @@ export default function EstimateForm({
                                                     </span>
                                                     <Input
                                                         {...field}
+                                                        ref={(element) => {
+                                                            amountRefs.current[
+                                                                index
+                                                            ] = element;
+                                                        }}
                                                         required
                                                         inputMode="decimal"
+                                                        enterKeyHint={
+                                                            index ===
+                                                            form.data.items
+                                                                .length -
+                                                                1
+                                                                ? 'enter'
+                                                                : 'next'
+                                                        }
+                                                        onKeyDown={(event) =>
+                                                            onItemKeyDown(
+                                                                event,
+                                                                index,
+                                                                'amount',
+                                                            )
+                                                        }
                                                         value={item.amount}
                                                         onChange={(event) =>
                                                             setItem(index, {
@@ -399,6 +514,45 @@ export default function EstimateForm({
                 </section>
 
                 <FormSection>
+                    <fieldset>
+                        <legend className="text-foreground mb-2 text-sm font-medium">
+                            Situação
+                        </legend>
+                        <div className="bg-muted grid grid-cols-2 gap-1 rounded-xl p-1">
+                            {statusOptions.map((option) => (
+                                <label
+                                    key={option.value}
+                                    className="has-checked:bg-card has-checked:text-foreground text-muted-foreground has-focus-visible:ring-ring flex min-h-10 cursor-pointer items-center justify-center rounded-lg px-3 text-sm font-medium transition-colors has-checked:shadow-xs has-focus-visible:ring-2"
+                                >
+                                    <input
+                                        type="radio"
+                                        name="status"
+                                        value={option.value}
+                                        checked={
+                                            form.data.status === option.value
+                                        }
+                                        onChange={() =>
+                                            form.setData('status', option.value)
+                                        }
+                                        className="sr-only"
+                                    />
+                                    {option.label}
+                                </label>
+                            ))}
+                        </div>
+                        <p className="text-muted-foreground mt-2 text-xs">
+                            {
+                                statusOptions.find(
+                                    (option) =>
+                                        option.value === form.data.status,
+                                )?.hint
+                            }
+                        </p>
+                        {form.errors.status && (
+                            <FieldError>{form.errors.status}</FieldError>
+                        )}
+                    </fieldset>
+
                     <Field
                         id="notes"
                         label="Observações"

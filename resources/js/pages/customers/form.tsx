@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Field, FormSection } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
+import { focusFirstError } from '@/lib/form-errors';
 
 type Customer = { id: number; name: string; phone?: string };
 
@@ -16,9 +18,13 @@ export default function CustomerForm({ customer }: { customer?: Customer }) {
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
 
-        if (customer) form.put(`/customers/${customer.id}`);
-        else form.post('/customers');
+        const options = { onError: focusFirstError };
+
+        if (customer) form.put(`/customers/${customer.id}`, options);
+        else form.post('/customers', options);
     };
+
+    useUnsavedChanges(form.isDirty && !form.processing);
 
     const cancelHref = customer ? `/customers/${customer.id}` : '/customers';
 

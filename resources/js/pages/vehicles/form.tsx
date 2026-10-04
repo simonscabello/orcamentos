@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Field, FormSection } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
+import { focusFirstError } from '@/lib/form-errors';
 
 type Customer = { id: number; name: string };
 type Vehicle = {
@@ -24,12 +26,8 @@ export default function VehicleForm({
     selectedCustomerId?: number;
 }) {
     const form = useForm({
-        customer_id: String(
-            vehicle?.customer_id ||
-                selectedCustomerId ||
-                customers[0]?.id ||
-                '',
-        ),
+        // Sem cliente indicado pela tela de origem, o usuário escolhe: evita vincular o veículo ao cliente errado.
+        customer_id: String(vehicle?.customer_id || selectedCustomerId || ''),
         model: vehicle?.model || '',
         plate: vehicle?.plate || '',
         color: vehicle?.color || '',
@@ -38,9 +36,13 @@ export default function VehicleForm({
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
 
-        if (vehicle) form.put(`/vehicles/${vehicle.id}`);
-        else form.post('/vehicles');
+        const options = { onError: focusFirstError };
+
+        if (vehicle) form.put(`/vehicles/${vehicle.id}`, options);
+        else form.post('/vehicles', options);
     };
+
+    useUnsavedChanges(form.isDirty && !form.processing);
 
     const cancelHref = form.data.customer_id
         ? `/customers/${vehicle?.customer_id || form.data.customer_id}`
@@ -96,9 +98,7 @@ export default function VehicleForm({
 
                     {!customers.length && (
                         <Button asChild variant="outline" className="w-full">
-                            <Link href="/customers/create">
-                                Cadastrar cliente
-                            </Link>
+                            <Link href="/customers/create">Novo cliente</Link>
                         </Button>
                     )}
 

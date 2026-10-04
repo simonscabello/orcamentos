@@ -1,5 +1,12 @@
-import { Head, Link } from '@inertiajs/react';
-import { Download, Pencil, Share2 } from 'lucide-react';
+import { Head, Link, router } from '@inertiajs/react';
+import {
+    CheckCircle2,
+    Copy,
+    Download,
+    Pencil,
+    Share2,
+    Undo2,
+} from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -53,6 +60,25 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
     const [pdfAction, setPdfAction] = useState<'download' | 'share' | null>(
         null,
     );
+    const [updatingStatus, setUpdatingStatus] = useState(false);
+    const isSent = estimate.status === 'sent';
+
+    const updateStatus = (status: 'draft' | 'sent') =>
+        router.patch(
+            `/estimates/${estimate.id}/status`,
+            { status },
+            {
+                preserveScroll: true,
+                onStart: () => setUpdatingStatus(true),
+                onFinish: () => setUpdatingStatus(false),
+            },
+        );
+
+    const pdfError = (retry: () => void) =>
+        toast.error('Não foi possível gerar o PDF.', {
+            description: 'Verifique sua internet e tente de novo.',
+            action: { label: 'Tentar de novo', onClick: retry },
+        });
 
     const fetchPdf = async () => {
         const response = await fetch(pdfUrl);
@@ -78,8 +104,9 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
 
         try {
             downloadBlob(await fetchPdf());
+            toast.success(`${fileName} baixado.`);
         } catch {
-            toast.error('Não foi possível gerar o PDF. Tente novamente.');
+            pdfError(() => void download());
         } finally {
             setPdfAction(null);
         }
@@ -96,20 +123,28 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
 
             if (navigator.canShare?.({ files: [file] })) {
                 await navigator.share({
-                    title: `Orçamento #${estimate.number}`,
+                    title: `Orçamento ${formatEstimateNumber(estimate.number)}`,
                     files: [file],
                 });
+
+                // Compartilhou de fato: o status acompanha a realidade sem exigir outro toque.
+                if (!isSent) updateStatus('sent');
+
                 return;
             }
 
             downloadBlob(blob);
-            toast.success('Seu PDF foi baixado.');
+            toast.success('Seu PDF foi baixado.', {
+                description: isSent
+                    ? undefined
+                    : 'Depois de enviar ao cliente, marque o orçamento como enviado.',
+            });
         } catch (error) {
             if (error instanceof DOMException && error.name === 'AbortError') {
                 return;
             }
 
-            toast.error('Não foi possível gerar o PDF. Tente novamente.');
+            pdfError(() => void share());
         } finally {
             setPdfAction(null);
         }
@@ -132,30 +167,45 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
                 backHref="/estimates"
                 backLabel="Orçamentos"
                 action={
-                    <Button
-                        asChild
-                        variant="outline"
-                        size="icon"
-                        aria-label="Editar orçamento"
-                    >
-                        <Link href={`/estimates/${estimate.id}/edit`}>
-                            <Pencil aria-hidden="true" />
-                        </Link>
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button asChild variant="outline" size="sm">
+                            <Link
+                                href={`/estimates/create?duplicate=${estimate.id}`}
+                            >
+                                <Copy aria-hidden="true" />
+                                Duplicar
+                            </Link>
+                        </Button>
+                        <Button asChild variant="outline" size="sm">
+                            <Link href={`/estimates/${estimate.id}/edit`}>
+                                <Pencil aria-hidden="true" />
+                                Editar
+                            </Link>
+                        </Button>
+                    </div>
                 }
             />
 
-            {estimate.status && (
-                <div className="mb-4">
-                    <Badge
-                        tone={
-                            estimate.status === 'sent' ? 'success' : 'neutral'
-                        }
-                    >
-                        {estimate.status === 'sent' ? 'Enviado' : 'Rascunho'}
-                    </Badge>
-                </div>
-            )}
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <Badge tone={isSent ? 'success' : 'neutral'}>
+                    {isSent ? 'Enviado ao cliente' : 'Rascunho'}
+                </Badge>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    loading={updatingStatus}
+                    onClick={() => updateStatus(isSent ? 'draft' : 'sent')}
+                >
+                    {!updatingStatus &&
+                        (isSent ? (
+                            <Undo2 aria-hidden="true" />
+                        ) : (
+                            <CheckCircle2 aria-hidden="true" />
+                        ))}
+                    {isSent ? 'Voltar para rascunho' : 'Marcar como enviado'}
+                </Button>
+            </div>
 
             <div className="divide-border border-border bg-card divide-y rounded-2xl border p-4 sm:p-5">
                 <DetailRow

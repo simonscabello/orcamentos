@@ -4,6 +4,8 @@ import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
+import { focusFirstError } from '@/lib/form-errors';
 
 type Business = {
     name: string;
@@ -22,6 +24,8 @@ export default function BusinessEdit({ business }: { business: Business }) {
         address: business.address || '',
     });
 
+    useUnsavedChanges(form.isDirty && !form.processing);
+
     return (
         <>
             <Head title="Ajustes da oficina" />
@@ -35,7 +39,11 @@ export default function BusinessEdit({ business }: { business: Business }) {
                 <form
                     onSubmit={(event) => {
                         event.preventDefault();
-                        form.put('/settings/business');
+                        form.put('/settings/business', {
+                            onError: focusFirstError,
+                            // A página continua aberta após salvar: os dados salvos viram o novo ponto de partida.
+                            onSuccess: () => form.setDefaults(),
+                        });
                     }}
                     className="border-border bg-card space-y-5 rounded-2xl border p-4 sm:p-5"
                 >

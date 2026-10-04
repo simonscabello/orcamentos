@@ -7,9 +7,11 @@ use App\Actions\UpdateEstimate;
 use App\Http\Requests\EstimateRequest;
 use App\Models\Customer;
 use App\Models\Estimate;
+use App\Models\EstimateItem;
 use App\Models\Vehicle;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -43,10 +45,20 @@ class EstimateController extends Controller
         $customerId = $vehicle?->customer_id
             ?? $data['customers']->firstWhere('id', $request->integer('customer_id'))?->id;
 
+        // "Duplicar": reaproveita cliente, veículo, itens e observações de um orçamento da mesma oficina.
+        $source = $request->integer('duplicate')
+            ? Estimate::forBusiness($request->user()->business_id)->with('items')->find($request->integer('duplicate'))
+            : null;
+
         return Inertia::render('estimates/form', [
             ...$data,
-            'selectedCustomerId' => $customerId,
-            'selectedVehicleId' => $customerId ? $vehicle?->id : null,
+            'selectedCustomerId' => $source?->customer_id ?? $customerId,
+            'selectedVehicleId' => $source?->vehicle_id ?? ($customerId ? $vehicle?->id : null),
+            'duplicateOf' => $source ? [
+                'number' => $source->number,
+                'notes' => $source->notes,
+                'items' => $source->items->map->only(['description', 'amount'])->values(),
+            ] : null,
         ]);
     }
 
@@ -82,6 +94,22 @@ class EstimateController extends Controller
         return to_route('estimates.show', $estimate);
     }
 
+    public function status(Request $request, int $estimate): RedirectResponse
+    {
+        $validated = $request->validate(
+            ['status' => ['required', Rule::in(['draft', 'sent'])]],
+            ['status.required' => 'Selecione um status.', 'status.in' => 'Selecione um status válido.'],
+        );
+
+        $this->estimate($request, $estimate)->update($validated);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => $validated['status'] === 'sent'
+            ? 'Orçamento marcado como enviado.'
+            : 'Orçamento voltou para rascunho.']);
+
+        return back();
+    }
+
     private function estimate(Request $request, int $id): Estimate
     {
         return Estimate::forBusiness($request->user()->business_id)->findOrFail($id);
@@ -94,6 +122,14 @@ class EstimateController extends Controller
         return [
             'customers' => Customer::forBusiness($businessId)->orderBy('name')->get(['id', 'name', 'phone']),
             'vehicles' => Vehicle::forBusiness($businessId)->orderBy('model')->get(['id', 'customer_id', 'model', 'plate', 'color']),
+            // Serviços já usados pela oficina, do mais recente para o mais antigo, para sugerir ao digitar.
+            'itemSuggestions' => EstimateItem::query()
+                ->join('estimates', 'estimates.id', '=', 'estimate_items.estimate_id')
+                ->where('estimates.business_id', $businessId)
+                ->groupBy('estimate_items.description')
+                ->orderByRaw('max(estimate_items.id) desc')
+                ->limit(100)
+                ->pluck('estimate_items.description'),
         ];
     }
 }

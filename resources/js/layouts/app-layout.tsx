@@ -74,10 +74,11 @@ export default function AppLayout({ children }: PropsWithChildren) {
                     {showQuickAction && (
                         <Link
                             href="/estimates/create"
+                            aria-label="Novo orçamento"
                             className="bg-primary text-primary-foreground active:bg-primary-hover flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition-colors"
                         >
                             <Plus className="size-4" aria-hidden="true" />
-                            Novo
+                            Orçamento
                         </Link>
                     )}
                 </div>

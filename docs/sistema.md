@@ -15,9 +15,9 @@ Todo dado de negócio pertence a um `business_id`. **Nunca** busque `Customer`, 
 - Os models com tenant usam o trait `App\Models\Concerns\BelongsToBusiness`, que fornece `business()` e o scope `forBusiness($businessOrId)`.
 - Controllers **não** usam route model binding. Eles recebem `int $id` e buscam com escopo, o que retorna 404 para registros de outra oficina:
 
-  ```php
-  Customer::forBusiness($request->user()->business_id)->findOrFail($customer);
-  ```
+    ```php
+    Customer::forBusiness($request->user()->business_id)->findOrFail($customer);
+    ```
 
 - Em `store`, o `business_id` vem sempre do usuário, nunca do request: `[...$request->validated(), 'business_id' => $request->user()->business_id]`.
 - Regras `exists` de FormRequest também filtram por oficina: `Rule::exists('customers', 'id')->where('business_id', $this->user()->business_id)`.
@@ -26,14 +26,14 @@ Todo dado de negócio pertence a um `business_id`. **Nunca** busque `Customer`, 
 
 ## Modelo de dados
 
-| Tabela | Colunas principais | Observações |
-|---|---|---|
-| `businesses` | `name`, `owner_name`, `phone`, `document`, `address` | Criada na migration de `users`. `document` é CPF ou CNPJ. |
-| `users` | `business_id`, `name`, `email`, `password`, colunas 2FA | Todo usuário pertence a uma oficina. |
-| `customers` | `business_id`, `name`, `phone?` | |
-| `vehicles` | `business_id`, `customer_id`, `model`, `plate?`, `color?` | Placa salva em maiúsculas pelo controller. |
-| `estimates` | `business_id`, `customer_id`, `vehicle_id`, `number`, `status`, `notes?`, `total`, `date` | `unique(business_id, number)`. Cliente/veículo com `restrictOnDelete`. |
-| `estimate_items` | `estimate_id`, `description`, `amount` | Cascade ao apagar o orçamento. |
+| Tabela           | Colunas principais                                                                        | Observações                                                            |
+| ---------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `businesses`     | `name`, `owner_name`, `phone`, `document`, `address`                                      | Criada na migration de `users`. `document` é CPF ou CNPJ.              |
+| `users`          | `business_id`, `name`, `email`, `password`, colunas 2FA                                   | Todo usuário pertence a uma oficina.                                   |
+| `customers`      | `business_id`, `name`, `phone?`                                                           |                                                                        |
+| `vehicles`       | `business_id`, `customer_id`, `model`, `plate?`, `color?`                                 | Placa salva em maiúsculas pelo controller.                             |
+| `estimates`      | `business_id`, `customer_id`, `vehicle_id`, `number`, `status`, `notes?`, `total`, `date` | `unique(business_id, number)`. Cliente/veículo com `restrictOnDelete`. |
+| `estimate_items` | `estimate_id`, `description`, `amount`                                                    | Cascade ao apagar o orçamento.                                         |
 
 Relações: `Business` hasMany `users`, `customers`, `estimates`; `Customer` hasMany `vehicles`, `estimates`; `Vehicle` belongsTo `customer`; `Estimate` belongsTo `customer`, `vehicle` e hasMany `items`.
 
@@ -43,29 +43,30 @@ Relações: `Business` hasMany `users`, `customers`, `estimates`; `Customer` has
 - **O total é sempre calculado no servidor** como soma de `items.*.amount`. Não aceite `total` vindo do request.
 - **Numeração:** `number` é sequencial por oficina. `App\Actions\CreateEstimate` trava a linha da `Business` (`lockForUpdate`) dentro de uma transação, pega `max(number) + 1` e cria o orçamento com os itens.
 - **Edição:** `App\Actions\UpdateEstimate` recalcula o total, apaga todos os itens e recria (não há update item a item).
-- **Status:** apenas `draft` ou `sent`.
+- **Status:** apenas `draft` (Rascunho) ou `sent` (Enviado). Pode ser escolhido no formulário, alternado na tela do orçamento (`PATCH /estimates/{id}/status`) e passa a `sent` automaticamente quando o compartilhamento nativo do PDF é concluído.
 - **Validação do orçamento** (`EstimateRequest`): de 1 a 100 itens, `amount` inteiro entre 1 e 999999999, e o veículo precisa pertencer ao cliente selecionado (validação em `after()`).
 - **Sem exclusão:** as rotas de clientes, veículos e orçamentos não têm `destroy`. Não adicione sem pedido explícito.
 - **Cadastro público desabilitado:** não existe `/register` (há teste garantindo). Oficinas e o primeiro usuário são criados por:
 
-  ```bash
-  php artisan business:create --name="Oficina" --owner="Nome" --email="email@exemplo.com" --password="senha-segura"
-  ```
+    ```bash
+    php artisan business:create --name="Oficina" --owner="Nome" --email="email@exemplo.com" --password="senha-segura"
+    ```
 
 ## Rotas
 
 Definidas em `routes/web.php` e `routes/settings.php`. Todas as rotas de negócio usam `auth` + `verified`.
 
-| Rota | Controller | Página Inertia |
-|---|---|---|
-| `GET /` | redirect para `/dashboard` | |
-| `GET /dashboard` | closure em `web.php` | `dashboard` (últimos 5 orçamentos) |
-| `/customers` (resource, sem destroy) | `CustomerController` | `customers/index`, `customers/show`, `customers/form` |
-| `/vehicles` (create, store, edit, update) | `VehicleController` | `vehicles/form` (redireciona para o cliente) |
-| `/estimates` (resource, sem destroy) | `EstimateController` | `estimates/index`, `estimates/show`, `estimates/form` |
-| `GET /estimates/{id}/pdf` | `EstimatePdfController` | download `orcamento-001.pdf` |
-| `GET/PUT /settings/business` | `BusinessController` | `business/edit` |
-| `/settings/profile`, `/settings/security`, `/settings/appearance` | `Settings\*` | `settings/*` |
+| Rota                                                              | Controller                  | Página Inertia                                        |
+| ----------------------------------------------------------------- | --------------------------- | ----------------------------------------------------- |
+| `GET /`                                                           | redirect para `/dashboard`  |                                                       |
+| `GET /dashboard`                                                  | closure em `web.php`        | `dashboard` (últimos 5 orçamentos)                    |
+| `/customers` (resource, sem destroy)                              | `CustomerController`        | `customers/index`, `customers/show`, `customers/form` |
+| `/vehicles` (create, store, edit, update)                         | `VehicleController`         | `vehicles/form` (redireciona para o cliente)          |
+| `/estimates` (resource, sem destroy)                              | `EstimateController`        | `estimates/index`, `estimates/show`, `estimates/form` |
+| `GET /estimates/{id}/pdf`                                         | `EstimatePdfController`     | download `orcamento-001.pdf`                          |
+| `PATCH /estimates/{id}/status`                                    | `EstimateController@status` | redireciona de volta com toast                        |
+| `GET/PUT /settings/business`                                      | `BusinessController`        | `business/edit`                                       |
+| `/settings/profile`, `/settings/security`, `/settings/appearance` | `Settings\*`                | `settings/*`                                          |
 
 As buscas (`?search=`) em clientes e orçamentos usam `lower(coluna) like ?` sobre nome, telefone e placa.
 
@@ -73,23 +74,27 @@ Atalhos por veículo (botões na ficha do cliente):
 
 - `GET /estimates/create?vehicle_id=` (ou `?customer_id=`) pré-seleciona cliente/veículo no formulário. Sem esses parâmetros nada vem selecionado — o usuário escolhe o cliente.
 - `GET /estimates?vehicle_id=` filtra a listagem pelos orçamentos daquele veículo. IDs fora da oficina são ignorados.
+- `GET /estimates/create?duplicate=` (botão **Duplicar** no orçamento) envia `duplicateOf` com itens e observações, e pré-seleciona o mesmo cliente/veículo. Data e status voltam ao padrão. IDs fora da oficina são ignorados.
+- O formulário de orçamento recebe `itemSuggestions`: até 100 descrições de itens já usadas pela oficina (mais recentes primeiro), exibidas como sugestões (`<datalist>`) ao digitar.
+- O início (`/dashboard`) recebe `onboarding` (`hasCustomers`, `hasVehicles`) enquanto a oficina não tem orçamentos, para o guia de primeiros passos.
 
 ## Backend: convenções
 
 - **Controllers** finos: validação em `app/Http/Requests`, lógica transacional em `app/Actions` (método `handle`).
 - **Feedback:** após salvar, use flash toast do Inertia e redirecione por rota nomeada:
 
-  ```php
-  Inertia::flash('toast', ['type' => 'success', 'message' => 'Cliente salvo com sucesso.']);
-  return to_route('customers.show', $customer);
-  ```
+    ```php
+    Inertia::flash('toast', ['type' => 'success', 'message' => 'Cliente salvo com sucesso.']);
+    return to_route('customers.show', $customer);
+    ```
 
-  O frontend exibe com o hook `use-flash-toast` (sonner).
+    O frontend exibe com o hook `use-flash-toast` (sonner).
+
 - **Mensagens de validação** em português dentro de `messages()` do FormRequest; traduções padrão em `lang/pt_BR`.
 - **Formatação brasileira no PHP:** `App\Support\BrazilianFormat` (telefone, CPF, CNPJ, documento, moeda `R$ 1.234,56`, data `d/m/Y`). Usado principalmente no PDF.
 - **Autenticação:** Fortify (login, reset de senha, verificação de e-mail, 2FA). As views são páginas Inertia configuradas em `FortifyServiceProvider`.
 - **Sessão longa (PWA):** `config/session.php` usa 30 dias (`SESSION_LIFETIME=43200`), para a oficina não precisar reautenticar a cada uso. O "Lembrar de mim" do login continua desmarcado por padrão. Em produção, confirme o valor na variável de ambiente.
-- **Produção:** `AppServiceProvider` força HTTPS, proíbe comandos destrutivos no banco e exige senhas fortes. `bootstrap/app.php` confia em todos os proxies (`trustProxies(at: '*')`), o que é necessário atrás do proxy do Railway. Não remova isso: sem essa configuração os assets passam a ser gerados com `http://` e a página fica em branco por *mixed content*.
+- **Produção:** `AppServiceProvider` força HTTPS, proíbe comandos destrutivos no banco e exige senhas fortes. `bootstrap/app.php` confia em todos os proxies (`trustProxies(at: '*')`), o que é necessário atrás do proxy do Railway. Não remova isso: sem essa configuração os assets passam a ser gerados com `http://` e a página fica em branco por _mixed content_.
 
 ## PDF
 
@@ -106,7 +111,9 @@ Atalhos por veículo (botões na ficha do cliente):
 - **UI:** componentes shadcn/Radix em `resources/js/components/ui`, ícones `lucide-react`, toasts `sonner`, layouts em `resources/js/layouts` (`mobile-shell.tsx` para navegação mobile).
 - **Formatação:** `resources/js/lib/format.ts` (`formatCurrency`, `formatDate`, `moneyToCents`, `centsToInput`). Datas `Y-m-d` são formatadas em UTC para não mudar de dia.
 - **PWA:** `public/manifest.webmanifest` e `public/sw.js` (registrado em `app.tsx`). O service worker **não** faz cache de páginas autenticadas; mantenha assim.
-- Priorize mobile: alvos de toque grandes e layout em uma coluna. Checklist manual em `docs/manual-test.md`.
+- **Formulários:** use `useUnsavedChanges(form.isDirty && !form.processing)` (`resources/js/hooks/use-unsaved-changes.ts`) para avisar antes de sair com alterações não salvas, e `onError: focusFirstError` (`resources/js/lib/form-errors.ts`) para levar o usuário ao primeiro campo com erro. Em páginas que continuam abertas após salvar, chame `form.setDefaults()` no `onSuccess`.
+- **Rótulos de ação:** padronize "Novo cliente", "Novo veículo", "Novo orçamento" e "Editar", sempre com texto visível (evite botões só com ícone).
+- Priorize mobile: alvos de toque grandes e layout em uma coluna. Checklist manual em `docs/manual-test.md`. A avaliação heurística de usabilidade está em `docs/avaliacao-heuristica.md`.
 
 ## Ambiente local
 

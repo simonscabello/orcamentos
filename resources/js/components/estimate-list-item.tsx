@@ -17,7 +17,7 @@ export type EstimateListItemData = {
 /** Linha de orçamento usada no início e na listagem, para manter o mesmo padrão. */
 export function EstimateListItem({
     estimate,
-    showStatus = false,
+    showStatus = true,
 }: {
     estimate: EstimateListItemData;
     showStatus?: boolean;

@@ -5,6 +5,7 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\EstimateController;
 use App\Http\Controllers\EstimatePdfController;
 use App\Http\Controllers\VehicleController;
+use App\Models\Vehicle;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard')->name('home');
@@ -39,13 +40,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
         $business = request()->user()->business;
         $estimates = $business->estimates()->with(['customer:id,name', 'vehicle:id,model'])->latest()->take(5)->get();
 
-        return inertia('dashboard', compact('business', 'estimates'));
+        // Guia de primeiros passos: só é exibido enquanto a oficina não tem orçamentos.
+        $onboarding = $estimates->isEmpty() ? [
+            'hasCustomers' => $business->customers()->exists(),
+            'hasVehicles' => Vehicle::forBusiness($business)->exists(),
+        ] : null;
+
+        return inertia('dashboard', compact('business', 'estimates', 'onboarding'));
     })->name('dashboard');
 
     Route::resource('customers', CustomerController::class)->except('destroy');
     Route::resource('vehicles', VehicleController::class)->only(['create', 'store', 'edit', 'update']);
     Route::resource('estimates', EstimateController::class)->except('destroy');
     Route::get('estimates/{estimate}/pdf', EstimatePdfController::class)->name('estimates.pdf');
+    Route::patch('estimates/{estimate}/status', [EstimateController::class, 'status'])->name('estimates.status');
     Route::get('settings/business', [BusinessController::class, 'edit'])->name('business.edit');
     Route::put('settings/business', [BusinessController::class, 'update'])->name('business.update');
 });

@@ -30,14 +30,10 @@ export default function CustomerShow({ customer }: { customer: Customer }) {
                 backHref="/customers"
                 backLabel="Clientes"
                 action={
-                    <Button
-                        asChild
-                        variant="outline"
-                        size="icon"
-                        aria-label="Editar cliente"
-                    >
+                    <Button asChild variant="outline" size="sm">
                         <Link href={`/customers/${customer.id}/edit`}>
                             <Pencil aria-hidden="true" />
+                            Editar
                         </Link>
                     </Button>
                 }
@@ -67,7 +63,7 @@ export default function CustomerShow({ customer }: { customer: Customer }) {
                             href={`/vehicles/create?customer_id=${customer.id}`}
                         >
                             <Plus aria-hidden="true" />
-                            Adicionar
+                            Novo veículo
                         </Link>
                     </Button>
                 </div>
@@ -113,10 +109,10 @@ export default function CustomerShow({ customer }: { customer: Customer }) {
                                         <Button asChild size="sm">
                                             <Link
                                                 href={`/estimates/create?vehicle_id=${vehicle.id}`}
-                                                aria-label={`Gerar orçamento para ${vehicle.model}`}
+                                                aria-label={`Novo orçamento para ${vehicle.model}`}
                                             >
                                                 <Plus aria-hidden="true" />
-                                                Gerar orçamento
+                                                Novo orçamento
                                             </Link>
                                         </Button>
                                         {vehicle.estimates_count > 0 && (
@@ -150,7 +146,7 @@ export default function CustomerShow({ customer }: { customer: Customer }) {
                                         href={`/vehicles/create?customer_id=${customer.id}`}
                                     >
                                         <Plus aria-hidden="true" />
-                                        Adicionar veículo
+                                        Novo veículo
                                     </Link>
                                 </Button>
                             }

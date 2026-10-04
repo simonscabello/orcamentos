@@ -39,9 +39,10 @@ export default function EstimatesIndex({ estimates, search, vehicle }: Props) {
                         : undefined
                 }
                 action={
-                    <Button asChild size="icon" aria-label="Novo orçamento">
+                    <Button asChild size="sm">
                         <Link href={createHref}>
                             <Plus aria-hidden="true" />
+                            Novo orçamento
                         </Link>
                     </Button>
                 }
@@ -90,7 +91,6 @@ export default function EstimatesIndex({ estimates, search, vehicle }: Props) {
                             <EstimateListItem
                                 key={estimate.id}
                                 estimate={estimate}
-                                showStatus
                             />
                         ))}
                     </ul>
@@ -103,7 +103,7 @@ export default function EstimatesIndex({ estimates, search, vehicle }: Props) {
                             <Button asChild>
                                 <Link href={createHref}>
                                     <Plus aria-hidden="true" />
-                                    Gerar orçamento
+                                    Novo orçamento
                                 </Link>
                             </Button>
                         }

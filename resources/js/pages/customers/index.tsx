@@ -33,9 +33,10 @@ export default function CustomersIndex({
                         : undefined
                 }
                 action={
-                    <Button asChild size="icon" aria-label="Cadastrar cliente">
+                    <Button asChild size="sm">
                         <Link href="/customers/create">
                             <Plus aria-hidden="true" />
+                            Novo cliente
                         </Link>
                     </Button>
                 }
@@ -94,7 +95,7 @@ export default function CustomersIndex({
                             <Button asChild>
                                 <Link href="/customers/create">
                                     <Plus aria-hidden="true" />
-                                    Cadastrar cliente
+                                    Novo cliente
                                 </Link>
                             </Button>
                         }
