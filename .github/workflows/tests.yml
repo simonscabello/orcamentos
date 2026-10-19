@@ -13,6 +13,23 @@ jobs:
   ci:
     runs-on: ubuntu-latest
 
+    # O composer setup copia o .env.example (pgsql em 127.0.0.1:5434) e roda as migrations,
+    # então o job precisa de um PostgreSQL igual ao do docker-compose.yml.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: app
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U app -d app"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -36,3 +53,15 @@ jobs:
 
       - name: Run CI Checks
         run: composer ci:check
+
+      # A suíte padrão usa sqlite em memória; rodar de novo no PostgreSQL pega diferenças
+      # que só aparecem em produção (tamanho de colunas, collation, locks).
+      - name: Run Tests on PostgreSQL
+        run: php artisan test --compact
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5434
+          DB_DATABASE: app
+          DB_USERNAME: app
+          DB_PASSWORD: app

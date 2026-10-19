@@ -9,6 +9,8 @@ use App\Models\Customer;
 use App\Models\Estimate;
 use App\Models\EstimateItem;
 use App\Models\Vehicle;
+use App\Support\EstimateSnapshot;
+use App\Support\SearchTerm;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -30,7 +32,7 @@ class EstimateController extends Controller
         $estimates = Estimate::forBusiness($request->user()->business_id)
             ->with(['customer:id,name,phone', 'vehicle:id,model,plate'])
             ->when($vehicle, fn ($query) => $query->where('vehicle_id', $vehicle->id))
-            ->when($search, fn ($query) => $query->where(fn ($q) => $q->whereHas('customer', fn ($customer) => $customer->whereRaw('lower(name) like ?', ['%'.strtolower($search).'%'])->orWhereRaw('lower(phone) like ?', ['%'.strtolower($search).'%']))->orWhereHas('vehicle', fn ($vehicle) => $vehicle->whereRaw('lower(plate) like ?', ['%'.strtolower($search).'%']))))
+            ->when($search, fn ($query) => $query->where(fn ($q) => $q->whereHas('customer', fn ($customer) => $customer->whereRaw(SearchTerm::sql('name'), SearchTerm::bindings($search))->orWhereRaw(SearchTerm::sql('phone'), SearchTerm::bindings($search)))->orWhereHas('vehicle', fn ($vehicle) => $vehicle->whereRaw(SearchTerm::sql('plate'), SearchTerm::bindings($search)))))
             ->latest()->get();
 
         return Inertia::render('estimates/index', compact('estimates', 'search', 'vehicle'));
@@ -57,7 +59,13 @@ class EstimateController extends Controller
             'duplicateOf' => $source ? [
                 'number' => $source->number,
                 'notes' => $source->notes,
-                'items' => $source->items->map->only(['description', 'amount'])->values(),
+                // A validade não é copiada: vale a partir da data do novo orçamento.
+                'insurer_name' => $source->insurer_name,
+                'claim_number' => $source->claim_number,
+                'deductible' => $source->deductible,
+                'discount_type' => $source->discount_type,
+                'discount_value' => $source->discount_value,
+                'items' => $source->items->map->only(['description', 'type', 'quantity', 'unit_amount', 'amount'])->values(),
             ] : null,
         ]);
     }
@@ -73,7 +81,7 @@ class EstimateController extends Controller
 
     public function show(Request $request, int $estimate): Response
     {
-        $estimate = $this->estimate($request, $estimate)->load(['customer', 'vehicle', 'items']);
+        $estimate = $this->estimate($request, $estimate)->load(['customer', 'vehicle', 'items', 'versions:id,estimate_id,version,total,created_at']);
 
         return Inertia::render('estimates/show', compact('estimate'));
     }
@@ -101,13 +109,19 @@ class EstimateController extends Controller
             ['status.required' => 'Selecione um status.', 'status.in' => 'Selecione um status válido.'],
         );
 
-        $this->estimate($request, $estimate)->update($validated);
+        $model = $this->estimate($request, $estimate);
+        $model->update($validated);
+
+        // Ao marcar como enviado, o conteúdo atual é o que o cliente recebe.
+        if ($validated['status'] === 'sent') {
+            EstimateSnapshot::store($model);
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => $validated['status'] === 'sent'
             ? 'Orçamento marcado como enviado.'
             : 'Orçamento voltou para rascunho.']);
 
-        return back();
+        return to_route('estimates.show', $estimate);
     }
 
     private function estimate(Request $request, int $id): Estimate

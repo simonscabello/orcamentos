@@ -22,7 +22,8 @@ class CreateBusinessCommand extends Command
     {
         $name = $this->option('name') ?: $this->ask('Nome da oficina');
         $owner = $this->option('owner') ?: $this->ask('Nome do responsável');
-        $email = $this->option('email') ?: $this->ask('E-mail do usuário');
+        // O Fortify compara o login em minúsculas (fortify.lowercase_usernames), então o e-mail é salvo assim.
+        $email = mb_strtolower(trim((string) ($this->option('email') ?: $this->ask('E-mail do usuário'))));
         $password = $this->option('password') ?: $this->secret('Senha do usuário');
 
         $validator = Validator::make([

@@ -18,7 +18,7 @@ class BusinessRequest extends FormRequest
             'owner_name' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:40'],
             'document' => ['nullable', 'string', 'max:30'],
-            'address' => ['nullable', 'string', 'max:500'],
+            'address' => ['nullable', 'string', 'max:255'],
         ];
     }
 

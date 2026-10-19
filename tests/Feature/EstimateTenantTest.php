@@ -138,3 +138,17 @@ it('rejects an update that changes an estimate to a foreign vehicle', function (
         ->assertRedirect("/estimates/{$estimate->id}/edit")
         ->assertSessionHasErrors('vehicle_id');
 });
+
+it('embeds only the used font glyphs so the pdf stays small to share', function () {
+    $user = User::factory()->create();
+    [$customer, $vehicle] = tenantVehicle($user->business);
+    $items = array_map(fn (int $i) => ['description' => "Serviço de funilaria nº {$i} — pintura e polimento", 'amount' => 12345 + $i], range(1, 20));
+    $this->actingAs($user)->post('/estimates', tenantData($user, $customer, $vehicle, $items));
+    $estimate = Estimate::forBusiness($user->business)->firstOrFail();
+
+    $pdf = $this->actingAs($user)->get("/estimates/{$estimate->id}/pdf")->assertOk()->getContent();
+
+    expect(strlen($pdf))->toBeLessThan(150_000)
+        ->and($pdf)->toStartWith('%PDF')
+        ->and($pdf)->toMatch('/\/BaseFont\s*\/[A-Z]{6}\+DejaVuSans/');
+});

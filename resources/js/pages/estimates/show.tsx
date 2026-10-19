@@ -18,18 +18,43 @@ import {
     formatDate,
     formatEstimateNumber,
     formatPhone,
+    todayIsoDate,
 } from '@/lib/format';
+import { itemTypeLabels } from '@/lib/estimate-totals';
+
+type EstimateVersion = {
+    id: number;
+    version: number;
+    total: number;
+    created_at: string;
+};
 
 type Estimate = {
     id: number;
     number: number;
+    version: number;
+    versions: EstimateVersion[];
     total: number;
     date: string;
     status?: string;
     notes?: string;
+    valid_until?: string | null;
+    insurer_name?: string | null;
+    claim_number?: string | null;
+    deductible?: number | null;
+    discount_type?: 'fixed' | 'percent' | null;
+    discount_value?: number | null;
+    discount_amount?: number;
     customer: { name: string; phone?: string };
     vehicle: { model: string; plate?: string; color?: string };
-    items: { id: number; description: string; amount: number }[];
+    items: {
+        id: number;
+        description: string;
+        amount: number;
+        type?: 'part' | 'labor' | null;
+        quantity?: number | null;
+        unit_amount?: number | null;
+    }[];
 };
 
 function DetailRow({
@@ -56,7 +81,7 @@ function DetailRow({
 
 export default function EstimateShow({ estimate }: { estimate: Estimate }) {
     const pdfUrl = `/estimates/${estimate.id}/pdf`;
-    const fileName = `orcamento-${String(estimate.number).padStart(3, '0')}.pdf`;
+    const fileName = `orcamento-${String(estimate.number).padStart(3, '0')}${estimate.version > 1 ? `-v${estimate.version}` : ''}.pdf`;
     const [pdfAction, setPdfAction] = useState<'download' | 'share' | null>(
         null,
     );
@@ -82,8 +107,22 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
 
     const fetchPdf = async () => {
         const response = await fetch(pdfUrl);
+        const isPdf = response.headers
+            .get('content-type')
+            ?.includes('application/pdf');
 
-        if (!response.ok) {
+        // Com a sessão expirada o fetch segue o redirect e recebe a página de
+        // login (HTML com status 200). Recarregar a tela do orçamento leva ao
+        // login e, depois dele, de volta ao orçamento (ir direto para a URL do
+        // login faria o Fortify devolver a pessoa para o PDF). A promessa fica
+        // pendente para não mostrar erro enquanto a página recarrega.
+        if (response.redirected && !isPdf) {
+            window.location.reload();
+
+            return new Promise<Blob>(() => {});
+        }
+
+        if (!response.ok || !isPdf) {
             throw new Error('Não foi possível gerar o PDF.');
         }
 
@@ -153,6 +192,16 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
     const vehicleDetails = [estimate.vehicle.plate, estimate.vehicle.color]
         .filter(Boolean)
         .join(' · ');
+    const isExpired = Boolean(
+        estimate.valid_until && estimate.valid_until < todayIsoDate(),
+    );
+    const insurerDetails = [
+        estimate.claim_number && `Sinistro ${estimate.claim_number}`,
+        estimate.deductible != null &&
+            `Franquia ${formatCurrency(estimate.deductible)}`,
+    ]
+        .filter(Boolean)
+        .join(' · ');
 
     return (
         <>
@@ -163,7 +212,11 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
             <PageHeader
                 eyebrow="Orçamento"
                 title={formatEstimateNumber(estimate.number)}
-                description={formatDate(estimate.date)}
+                description={
+                    estimate.version > 1
+                        ? `${formatDate(estimate.date)} · versão ${estimate.version}`
+                        : formatDate(estimate.date)
+                }
                 backHref="/estimates"
                 backLabel="Orçamentos"
                 action={
@@ -227,6 +280,20 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
                     value={estimate.vehicle.model}
                     secondary={vehicleDetails || 'Sem placa'}
                 />
+                {estimate.valid_until && (
+                    <DetailRow
+                        label="Validade"
+                        value={`Até ${formatDate(estimate.valid_until)}`}
+                        secondary={isExpired ? 'Vencido' : undefined}
+                    />
+                )}
+                {(estimate.insurer_name || insurerDetails) && (
+                    <DetailRow
+                        label="Seguradora"
+                        value={estimate.insurer_name || 'Não informada'}
+                        secondary={insurerDetails || undefined}
+                    />
+                )}
             </div>
 
             <section className="border-border bg-card mt-4 overflow-hidden rounded-2xl border">
@@ -239,8 +306,23 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
                             key={item.id}
                             className="flex items-start justify-between gap-4 px-4 py-3 sm:px-5"
                         >
-                            <span className="text-foreground">
-                                {item.description}
+                            <span>
+                                <span className="text-foreground block">
+                                    {item.description}
+                                </span>
+                                {(item.type || item.quantity != null) && (
+                                    <span className="text-muted-foreground block text-sm">
+                                        {[
+                                            item.type &&
+                                                itemTypeLabels[item.type],
+                                            item.quantity != null &&
+                                                item.unit_amount != null &&
+                                                `${item.quantity} × ${formatCurrency(item.unit_amount)}`,
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' · ')}
+                                    </span>
+                                )}
                             </span>
                             <span className="tabular shrink-0 font-medium">
                                 {formatCurrency(item.amount)}
@@ -248,6 +330,30 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
                         </li>
                     ))}
                 </ul>
+                {Boolean(estimate.discount_amount) && (
+                    <div className="border-border text-muted-foreground tabular space-y-1 border-t px-4 py-3 text-sm sm:px-5">
+                        <p className="flex justify-between gap-4">
+                            <span>Subtotal</span>
+                            <span>
+                                {formatCurrency(
+                                    estimate.total +
+                                        (estimate.discount_amount ?? 0),
+                                )}
+                            </span>
+                        </p>
+                        <p className="flex justify-between gap-4">
+                            <span>
+                                Desconto
+                                {estimate.discount_type === 'percent' &&
+                                    estimate.discount_value != null &&
+                                    ` (${(estimate.discount_value / 100).toLocaleString('pt-BR')}%)`}
+                            </span>
+                            <span>
+                                −{formatCurrency(estimate.discount_amount ?? 0)}
+                            </span>
+                        </p>
+                    </div>
+                )}
                 <div className="bg-muted/50 flex items-baseline justify-between gap-4 px-4 py-4 sm:px-5">
                     <span className="text-muted-foreground text-sm font-semibold tracking-wide uppercase">
                         Total
@@ -266,6 +372,48 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
                     <p className="text-muted-foreground text-sm whitespace-pre-line">
                         {estimate.notes}
                     </p>
+                </section>
+            )}
+
+            {estimate.versions.length > 0 && (
+                <section className="border-border bg-card mt-4 rounded-2xl border p-4 sm:p-5">
+                    <h2 className="text-base font-semibold">
+                        Versões anteriores
+                    </h2>
+                    <p className="text-muted-foreground mb-2 text-sm">
+                        Cópia do que o cliente recebeu antes de cada alteração.
+                    </p>
+                    <ul className="divide-border divide-y">
+                        {[...estimate.versions].reverse().map((version) => (
+                            <li
+                                key={version.id}
+                                className="flex items-center justify-between gap-4 py-2"
+                            >
+                                <span>
+                                    <span className="text-foreground block font-medium">
+                                        Versão {version.version} ·{' '}
+                                        <span className="tabular">
+                                            {formatCurrency(version.total)}
+                                        </span>
+                                    </span>
+                                    <span className="text-muted-foreground block text-sm">
+                                        Substituída em{' '}
+                                        {formatDate(version.created_at)}
+                                    </span>
+                                </span>
+                                <Button asChild variant="outline" size="sm">
+                                    <a
+                                        href={`/estimates/${estimate.id}/versions/${version.version}/pdf`}
+                                        download
+                                        aria-label={`Baixar PDF da versão ${version.version}`}
+                                    >
+                                        <Download aria-hidden="true" />
+                                        PDF
+                                    </a>
+                                </Button>
+                            </li>
+                        ))}
+                    </ul>
                 </section>
             )}
 

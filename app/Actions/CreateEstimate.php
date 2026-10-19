@@ -4,6 +4,9 @@ namespace App\Actions;
 
 use App\Models\Business;
 use App\Models\Estimate;
+use App\Support\EstimateSnapshot;
+use App\Support\EstimateTotals;
+use App\Support\VehicleOwnership;
 use Illuminate\Support\Facades\DB;
 
 class CreateEstimate
@@ -12,17 +15,18 @@ class CreateEstimate
     {
         return DB::transaction(function () use ($business, $attributes): Estimate {
             Business::lockForUpdate()->findOrFail($business->id);
+            VehicleOwnership::lockAndCheck($business->id, $attributes['vehicle_id'], $attributes['customer_id']);
             $number = (int) Estimate::forBusiness($business)->max('number') + 1;
-            $items = $attributes['items'];
-            $total = array_sum(array_column($items, 'amount'));
+            $totals = EstimateTotals::fromAttributes($attributes);
 
             $estimate = Estimate::create([
                 ...collect($attributes)->except('items')->all(),
                 'business_id' => $business->id,
                 'number' => $number,
-                'total' => $total,
+                ...$totals['columns'],
             ]);
-            $estimate->items()->createMany($items);
+            $estimate->items()->createMany($totals['items']);
+            EstimateSnapshot::store($estimate);
 
             return $estimate;
         });
