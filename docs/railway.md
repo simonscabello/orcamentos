@@ -39,7 +39,7 @@ O Railway encerra o HTTPS no proxy e repassa a requisição em HTTP para a aplic
 - `bootstrap/app.php` tem `$middleware->trustProxies(at: '*')`;
 - `AppServiceProvider` chama `URL::forceHttps()` em produção.
 
-Sem isso o Laravel gera URLs `http://` para CSS/JS, o navegador bloqueia (*mixed content*) e a tela fica preta.
+Sem isso o Laravel gera URLs `http://` para CSS/JS, o navegador bloqueia (_mixed content_) e a tela fica preta.
 
 ## Cuidados
 
