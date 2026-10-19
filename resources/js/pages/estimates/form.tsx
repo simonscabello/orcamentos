@@ -15,6 +15,7 @@ import {
     formatEstimateNumber,
     formatPhone,
     moneyToCents,
+    todayIsoDate,
 } from '@/lib/format';
 
 type Customer = { id: number; name: string; phone?: string };
@@ -85,7 +86,7 @@ export default function EstimateForm({
                     ? initialCustomerVehicles[0].id
                     : ''),
         ),
-        date: estimate?.date || new Date().toISOString().slice(0, 10),
+        date: estimate?.date || todayIsoDate(),
         status: (estimate?.status || 'draft') as Status,
         notes: estimate?.notes || duplicateOf?.notes || '',
         items: (estimate?.items ?? duplicateOf?.items)?.map((item) => ({

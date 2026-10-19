@@ -82,8 +82,18 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
 
     const fetchPdf = async () => {
         const response = await fetch(pdfUrl);
+        const isPdf = response.headers
+            .get('content-type')
+            ?.includes('application/pdf');
 
-        if (!response.ok) {
+        // Com a sessão expirada o fetch segue o redirect e recebe a página de
+        // login (HTML com status 200): leva a pessoa para entrar de novo em vez
+        // de salvar ou compartilhar esse HTML como se fosse o PDF.
+        if (response.redirected && !isPdf) {
+            window.location.assign(response.url);
+        }
+
+        if (!response.ok || !isPdf) {
             throw new Error('Não foi possível gerar o PDF.');
         }
 
