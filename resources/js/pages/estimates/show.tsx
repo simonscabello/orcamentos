@@ -87,10 +87,14 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
             ?.includes('application/pdf');
 
         // Com a sessão expirada o fetch segue o redirect e recebe a página de
-        // login (HTML com status 200): leva a pessoa para entrar de novo em vez
-        // de salvar ou compartilhar esse HTML como se fosse o PDF.
+        // login (HTML com status 200). Recarregar a tela do orçamento leva ao
+        // login e, depois dele, de volta ao orçamento (ir direto para a URL do
+        // login faria o Fortify devolver a pessoa para o PDF). A promessa fica
+        // pendente para não mostrar erro enquanto a página recarrega.
         if (response.redirected && !isPdf) {
-            window.location.assign(response.url);
+            window.location.reload();
+
+            return new Promise<Blob>(() => {});
         }
 
         if (!response.ok || !isPdf) {

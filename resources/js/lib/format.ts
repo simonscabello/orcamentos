@@ -24,14 +24,18 @@ export const formatDate = (date?: string | null) => {
  * Um único ponto seguido de um ou dois dígitos ainda é aceito como decimal
  * (10.5 = dez reais e cinquenta centavos).
  *
- * Sinal negativo, letras ou outros símbolos tornam o valor inválido e devolvem 0
+ * Sinal negativo, letras, separadores repetidos ("10,,50") ou fora do padrão
+ * tornam o valor inválido e devolvem 0
  * (o servidor então pede um valor maior que zero), em vez de descartar o que
  * não é dígito e transformar "-10,00" em R$ 10,00.
  */
 export const moneyToCents = (value: string) => {
-    const normalized = value.replace(/R\$|\s|\u00a0/g, '');
+    const normalized = value.replace(/R\$|\s|\u00a0/gi, '');
+    const isMoney =
+        /^(\d+|\d{1,3}(\.\d{3})+)(,\d*)?$/.test(normalized) ||
+        /^\d+\.\d{1,2}$/.test(normalized);
 
-    if (!normalized || /[^\d.,]/.test(normalized)) return 0;
+    if (!isMoney) return 0;
 
     const toCents = (whole: string, decimal: string) =>
         Number(whole.replace(/\D/g, '') || '0') * 100 +

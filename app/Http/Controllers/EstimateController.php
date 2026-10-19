@@ -31,7 +31,7 @@ class EstimateController extends Controller
         $estimates = Estimate::forBusiness($request->user()->business_id)
             ->with(['customer:id,name,phone', 'vehicle:id,model,plate'])
             ->when($vehicle, fn ($query) => $query->where('vehicle_id', $vehicle->id))
-            ->when($search, fn ($query) => $query->where(fn ($q) => $q->whereHas('customer', fn ($customer) => $customer->whereRaw(SearchTerm::sql('name'), [SearchTerm::pattern($search)])->orWhereRaw(SearchTerm::sql('phone'), [SearchTerm::pattern($search)]))->orWhereHas('vehicle', fn ($vehicle) => $vehicle->whereRaw(SearchTerm::sql('plate'), [SearchTerm::pattern($search)]))))
+            ->when($search, fn ($query) => $query->where(fn ($q) => $q->whereHas('customer', fn ($customer) => $customer->whereRaw(SearchTerm::sql('name'), SearchTerm::bindings($search))->orWhereRaw(SearchTerm::sql('phone'), SearchTerm::bindings($search)))->orWhereHas('vehicle', fn ($vehicle) => $vehicle->whereRaw(SearchTerm::sql('plate'), SearchTerm::bindings($search)))))
             ->latest()->get();
 
         return Inertia::render('estimates/index', compact('estimates', 'search', 'vehicle'));

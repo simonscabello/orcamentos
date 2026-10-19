@@ -148,5 +148,7 @@ it('embeds only the used font glyphs so the pdf stays small to share', function 
 
     $pdf = $this->actingAs($user)->get("/estimates/{$estimate->id}/pdf")->assertOk()->getContent();
 
-    expect(strlen($pdf))->toBeLessThan(150_000);
+    expect(strlen($pdf))->toBeLessThan(150_000)
+        ->and($pdf)->toStartWith('%PDF')
+        ->and($pdf)->toMatch('/\/BaseFont\s*\/[A-Z]{6}\+DejaVuSans/');
 });

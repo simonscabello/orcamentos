@@ -49,12 +49,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return inertia('dashboard', compact('business', 'estimates', 'onboarding'));
     })->name('dashboard');
 
-    // Os controllers recebem `int $id`: sem o filtro numérico, /estimates/abc virava erro 500.
-    Route::resource('customers', CustomerController::class)->except('destroy')->where(['customer' => '[0-9]+']);
-    Route::resource('vehicles', VehicleController::class)->only(['create', 'store', 'edit', 'update'])->where(['vehicle' => '[0-9]+']);
-    Route::resource('estimates', EstimateController::class)->except('destroy')->where(['estimate' => '[0-9]+']);
-    Route::get('estimates/{estimate}/pdf', EstimatePdfController::class)->whereNumber('estimate')->name('estimates.pdf');
-    Route::patch('estimates/{estimate}/status', [EstimateController::class, 'status'])->whereNumber('estimate')->name('estimates.status');
+    // Os controllers recebem `int $id`: sem o filtro, /estimates/abc ou um id maior que o int do PHP virava erro 500.
+    Route::resource('customers', CustomerController::class)->except('destroy')->where(['customer' => '[0-9]{1,18}']);
+    Route::resource('vehicles', VehicleController::class)->only(['create', 'store', 'edit', 'update'])->where(['vehicle' => '[0-9]{1,18}']);
+    Route::resource('estimates', EstimateController::class)->except('destroy')->where(['estimate' => '[0-9]{1,18}']);
+    Route::get('estimates/{estimate}/pdf', EstimatePdfController::class)->where('estimate', '[0-9]{1,18}')->name('estimates.pdf');
+    Route::patch('estimates/{estimate}/status', [EstimateController::class, 'status'])->where('estimate', '[0-9]{1,18}')->name('estimates.status');
     Route::get('settings/business', [BusinessController::class, 'edit'])->name('business.edit');
     Route::put('settings/business', [BusinessController::class, 'update'])->name('business.update');
 });

@@ -16,7 +16,7 @@ class CustomerController extends Controller
     {
         $search = $request->string('search')->trim()->toString();
         $customers = Customer::forBusiness($request->user()->business_id)
-            ->when($search, fn ($query) => $query->where(fn ($q) => $q->whereRaw(SearchTerm::sql('name'), [SearchTerm::pattern($search)])->orWhereRaw(SearchTerm::sql('phone'), [SearchTerm::pattern($search)])))
+            ->when($search, fn ($query) => $query->where(fn ($q) => $q->whereRaw(SearchTerm::sql('name'), SearchTerm::bindings($search))->orWhereRaw(SearchTerm::sql('phone'), SearchTerm::bindings($search))))
             ->withCount('vehicles')->latest()->get();
 
         return Inertia::render('customers/index', compact('customers', 'search'));

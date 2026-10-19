@@ -5,6 +5,7 @@ use App\Models\Customer;
 use App\Models\Estimate;
 use App\Models\User;
 use App\Models\Vehicle;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 
 function integrityVehicle(Business $business, string $customerName = 'Cliente Teste', string $plate = 'ABC1234'): array
@@ -51,6 +52,11 @@ it('recalculates the total and keeps the number when items are edited or removed
 });
 
 it('keeps items in the order they were typed', function () {
+    // Sem ORDER BY o sqlite passa a devolver as linhas ao contrário, como o PostgreSQL pode fazer.
+    if (DB::getDriverName() === 'sqlite') {
+        DB::statement('PRAGMA reverse_unordered_selects = ON');
+    }
+
     $user = User::factory()->create();
     [$customer, $vehicle] = integrityVehicle($user->business);
     $descriptions = ['Zeta', 'Alfa', 'Meio', 'Beta'];
@@ -64,9 +70,12 @@ it('keeps items in the order they were typed', function () {
     $this->actingAs($user)
         ->get("/estimates/{$estimate->id}")
         ->assertInertia(fn (Assert $page) => $page
-            ->where('estimate.items.0.description', 'Zeta')
-            ->where('estimate.items.3.description', 'Beta')
+            ->where('estimate.items', fn ($items) => collect($items)->pluck('description')->all() === $descriptions)
         );
+
+    if (DB::getDriverName() === 'sqlite') {
+        DB::statement('PRAGMA reverse_unordered_selects = OFF');
+    }
 });
 
 it('does not edit or update another business estimate', function () {
@@ -93,6 +102,8 @@ it('returns not found for non numeric ids', function (string $url) {
     '/customers/abc',
     '/customers/abc/edit',
     '/vehicles/abc/edit',
+    '/estimates/9223372036854775808',
+    '/customers/99999999999999999999/edit',
 ]);
 
 it('returns to the estimate after changing its status even without a referer', function () {
@@ -104,6 +115,15 @@ it('returns to the estimate after changing its status even without a referer', f
     $this->actingAs($user)
         ->patch("/estimates/{$estimate->id}/status", ['status' => 'sent'])
         ->assertRedirect("/estimates/{$estimate->id}");
+});
+
+it('still finds names stored in uppercase with accents', function () {
+    $user = User::factory()->create();
+    integrityVehicle($user->business, 'JOÃO DA SILVA');
+
+    $this->actingAs($user)
+        ->get('/customers?search=JOÃO')
+        ->assertInertia(fn (Assert $page) => $page->has('customers', 1));
 });
 
 it('finds customers and estimates by accented names typed in uppercase', function () {
