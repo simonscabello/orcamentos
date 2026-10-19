@@ -9,6 +9,7 @@ use App\Models\Customer;
 use App\Models\Estimate;
 use App\Models\EstimateItem;
 use App\Models\Vehicle;
+use App\Support\SearchTerm;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -30,7 +31,7 @@ class EstimateController extends Controller
         $estimates = Estimate::forBusiness($request->user()->business_id)
             ->with(['customer:id,name,phone', 'vehicle:id,model,plate'])
             ->when($vehicle, fn ($query) => $query->where('vehicle_id', $vehicle->id))
-            ->when($search, fn ($query) => $query->where(fn ($q) => $q->whereHas('customer', fn ($customer) => $customer->whereRaw('lower(name) like ?', ['%'.strtolower($search).'%'])->orWhereRaw('lower(phone) like ?', ['%'.strtolower($search).'%']))->orWhereHas('vehicle', fn ($vehicle) => $vehicle->whereRaw('lower(plate) like ?', ['%'.strtolower($search).'%']))))
+            ->when($search, fn ($query) => $query->where(fn ($q) => $q->whereHas('customer', fn ($customer) => $customer->whereRaw(SearchTerm::sql('name'), [SearchTerm::pattern($search)])->orWhereRaw(SearchTerm::sql('phone'), [SearchTerm::pattern($search)]))->orWhereHas('vehicle', fn ($vehicle) => $vehicle->whereRaw(SearchTerm::sql('plate'), [SearchTerm::pattern($search)]))))
             ->latest()->get();
 
         return Inertia::render('estimates/index', compact('estimates', 'search', 'vehicle'));
@@ -107,7 +108,7 @@ class EstimateController extends Controller
             ? 'Orçamento marcado como enviado.'
             : 'Orçamento voltou para rascunho.']);
 
-        return back();
+        return to_route('estimates.show', $estimate);
     }
 
     private function estimate(Request $request, int $id): Estimate

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\CustomerRequest;
 use App\Models\Customer;
+use App\Support\SearchTerm;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -15,7 +16,7 @@ class CustomerController extends Controller
     {
         $search = $request->string('search')->trim()->toString();
         $customers = Customer::forBusiness($request->user()->business_id)
-            ->when($search, fn ($query) => $query->where(fn ($q) => $q->whereRaw('lower(name) like ?', ['%'.strtolower($search).'%'])->orWhereRaw('lower(phone) like ?', ['%'.strtolower($search).'%'])))
+            ->when($search, fn ($query) => $query->where(fn ($q) => $q->whereRaw(SearchTerm::sql('name'), [SearchTerm::pattern($search)])->orWhereRaw(SearchTerm::sql('phone'), [SearchTerm::pattern($search)])))
             ->withCount('vehicles')->latest()->get();
 
         return Inertia::render('customers/index', compact('customers', 'search'));

@@ -21,6 +21,21 @@ class ProfileUpdateTest extends TestCase
         $response->assertOk();
     }
 
+    public function test_profile_email_is_stored_in_lowercase()
+    {
+        $user = User::factory()->create();
+
+        $this
+            ->actingAs($user)
+            ->patch(route('profile.update'), [
+                'name' => 'Test User',
+                'email' => 'Test.User@Example.com',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('test.user@example.com', $user->refresh()->email);
+    }
+
     public function test_profile_information_can_be_updated()
     {
         $user = User::factory()->create();

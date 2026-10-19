@@ -31,6 +31,6 @@ class Estimate extends Model
 
     public function items(): HasMany
     {
-        return $this->hasMany(EstimateItem::class);
+        return $this->hasMany(EstimateItem::class)->orderBy('id');
     }
 }
