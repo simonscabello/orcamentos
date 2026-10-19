@@ -11,6 +11,16 @@
 | 5   | Último usuário (S01/D6)             | Bloquear / apagar a oficina / remover a opção                              | Bloquear com mensagem                                                                                            |
 | 6   | Versionar `.claude/agents/`         | Liberar no `.gitignore` / manter local                                     | Manter local, a menos que mais pessoas usem o Claude Code no projeto                                             |
 
+## Decisões do dono (2026-10-19)
+
+| Tema                                           | Decisão                                                   | Entrega                                                                                 |
+| ---------------------------------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Orçamento enviado pode ser alterado (D2)       | Sim, com versões para controle                            | PR C: cópia da versão anterior ao editar um orçamento enviado; PDF com "versão N"       |
+| Mesmo carro com outra pessoa (D1/D5)           | Avisar e deixar seguir com o orçamento para a pessoa nova | PR C: aviso de placa já cadastrada; troca de dono de veículo com orçamento bloqueada    |
+| Peças × mão de obra, quantidade, desconto (D4) | Pode, mantendo o modo manual (descrição + valor)          | PR B: tipo e quantidade × unitário opcionais por item; desconto em R$ ou % no orçamento |
+| Validade (D3)                                  | Sim, opcional                                             | **PR A**                                                                                |
+| Seguradora (D7)                                | Sim, opcional                                             | **PR A**                                                                                |
+
 ## Perguntas para a funilaria (D1–D7)
 
 1. O veículo pode passar de um cliente para outro? Se sim, o orçamento antigo deve continuar mostrando o dono da época?

@@ -29,14 +29,23 @@ export const formatDate = (date?: string | null) => {
  * (o servidor então pede um valor maior que zero), em vez de descartar o que
  * não é dígito e transformar "-10,00" em R$ 10,00.
  */
-export const moneyToCents = (value: string) => {
-    const normalized = value.replace(/R\$|\s|\u00a0/gi, '');
-    const isMoney =
+const normalizeMoney = (value: string) => value.replace(/R\$|\s|\u00a0/gi, '');
+
+/** Diz se o texto é um valor em reais que `moneyToCents` sabe converter. */
+export const isMoneyInput = (value: string) => {
+    const normalized = normalizeMoney(value);
+
+    return (
         /^(\d+|\d{1,3}(\.\d{3})+)(,\d*)?$/.test(normalized) ||
         /^\d*\.\d{1,2}$/.test(normalized) ||
-        /^,\d{1,2}$/.test(normalized);
+        /^,\d{1,2}$/.test(normalized)
+    );
+};
 
-    if (!isMoney) return 0;
+export const moneyToCents = (value: string) => {
+    const normalized = normalizeMoney(value);
+
+    if (!isMoneyInput(normalized)) return 0;
 
     const toCents = (whole: string, decimal: string) =>
         Number(whole.replace(/\D/g, '') || '0') * 100 +
@@ -73,6 +82,14 @@ export const todayIsoDate = (date = new Date()) =>
         String(date.getMonth() + 1).padStart(2, '0'),
         String(date.getDate()).padStart(2, '0'),
     ].join('-');
+
+/** Soma dias a uma data AAAA-MM-DD sem passar pelo fuso horário. */
+export const addDaysToIsoDate = (isoDate: string, days: number) => {
+    const [year, month, day] = isoDate.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day + days));
+
+    return date.toISOString().slice(0, 10);
+};
 
 export const centsToInput = (cents: number) =>
     (cents / 100).toLocaleString('pt-BR', {

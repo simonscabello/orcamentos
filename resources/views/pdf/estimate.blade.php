@@ -54,7 +54,24 @@
             <p class="detail"><span class="label">Placa:</span> {{ $estimate->vehicle->plate }}</p>
         @endif
         <p class="detail"><span class="label">Data:</span> {{ \App\Support\BrazilianFormat::formatDate($estimate->date) }}</p>
+        @if ($estimate->valid_until)
+            <p class="detail"><span class="label">Válido até:</span> {{ \App\Support\BrazilianFormat::formatDate($estimate->valid_until) }}</p>
+        @endif
     </section>
+
+    @if (filled($estimate->insurer_name) || filled($estimate->claim_number) || $estimate->deductible !== null)
+        <section class="details">
+            @if (filled($estimate->insurer_name))
+                <p class="detail"><span class="label">Seguradora:</span> {{ $estimate->insurer_name }}</p>
+            @endif
+            @if (filled($estimate->claim_number))
+                <p class="detail"><span class="label">Sinistro:</span> {{ $estimate->claim_number }}</p>
+            @endif
+            @if ($estimate->deductible !== null)
+                <p class="detail"><span class="label">Franquia:</span> {{ \App\Support\BrazilianFormat::formatCurrency($estimate->deductible) }}</p>
+            @endif
+        </section>
+    @endif
 
     <table>
         <thead>

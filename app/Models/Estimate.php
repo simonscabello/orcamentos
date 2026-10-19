@@ -12,11 +12,11 @@ class Estimate extends Model
 {
     use BelongsToBusiness, HasFactory;
 
-    protected $fillable = ['business_id', 'customer_id', 'vehicle_id', 'number', 'status', 'notes', 'total', 'date'];
+    protected $fillable = ['business_id', 'customer_id', 'vehicle_id', 'number', 'status', 'notes', 'total', 'date', 'valid_until', 'insurer_name', 'claim_number', 'deductible'];
 
     protected function casts(): array
     {
-        return ['date' => 'date:Y-m-d', 'total' => 'integer'];
+        return ['date' => 'date:Y-m-d', 'valid_until' => 'date:Y-m-d', 'total' => 'integer', 'deductible' => 'integer'];
     }
 
     public function customer(): BelongsTo

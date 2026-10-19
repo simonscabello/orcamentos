@@ -18,6 +18,7 @@ import {
     formatDate,
     formatEstimateNumber,
     formatPhone,
+    todayIsoDate,
 } from '@/lib/format';
 
 type Estimate = {
@@ -27,6 +28,10 @@ type Estimate = {
     date: string;
     status?: string;
     notes?: string;
+    valid_until?: string | null;
+    insurer_name?: string | null;
+    claim_number?: string | null;
+    deductible?: number | null;
     customer: { name: string; phone?: string };
     vehicle: { model: string; plate?: string; color?: string };
     items: { id: number; description: string; amount: number }[];
@@ -167,6 +172,16 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
     const vehicleDetails = [estimate.vehicle.plate, estimate.vehicle.color]
         .filter(Boolean)
         .join(' · ');
+    const isExpired = Boolean(
+        estimate.valid_until && estimate.valid_until < todayIsoDate(),
+    );
+    const insurerDetails = [
+        estimate.claim_number && `Sinistro ${estimate.claim_number}`,
+        estimate.deductible != null &&
+            `Franquia ${formatCurrency(estimate.deductible)}`,
+    ]
+        .filter(Boolean)
+        .join(' · ');
 
     return (
         <>
@@ -241,6 +256,20 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
                     value={estimate.vehicle.model}
                     secondary={vehicleDetails || 'Sem placa'}
                 />
+                {estimate.valid_until && (
+                    <DetailRow
+                        label="Validade"
+                        value={`Até ${formatDate(estimate.valid_until)}`}
+                        secondary={isExpired ? 'Vencido' : undefined}
+                    />
+                )}
+                {(estimate.insurer_name || insurerDetails) && (
+                    <DetailRow
+                        label="Seguradora"
+                        value={estimate.insurer_name || 'Não informada'}
+                        secondary={insurerDetails || undefined}
+                    />
+                )}
             </div>
 
             <section className="border-border bg-card mt-4 overflow-hidden rounded-2xl border">

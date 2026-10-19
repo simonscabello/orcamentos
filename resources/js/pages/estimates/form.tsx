@@ -1,6 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Plus, Trash2 } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -10,10 +10,12 @@ import { PageHeader } from '@/components/ui/page-header';
 import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
 import { focusFirstError } from '@/lib/form-errors';
 import {
+    addDaysToIsoDate,
     centsToInput,
     formatCurrency,
     formatEstimateNumber,
     formatPhone,
+    isMoneyInput,
     moneyToCents,
     todayIsoDate,
 } from '@/lib/format';
@@ -33,6 +35,10 @@ type Estimate = {
     date: string;
     status: 'draft' | 'sent';
     notes?: string;
+    valid_until?: string | null;
+    insurer_name?: string | null;
+    claim_number?: string | null;
+    deductible?: number | null;
     items: { description: string; amount: number }[];
 };
 type Item = { description: string; amount: string };
@@ -40,8 +46,13 @@ type Status = 'draft' | 'sent';
 type DuplicateOf = {
     number: number;
     notes?: string | null;
+    insurer_name?: string | null;
+    claim_number?: string | null;
+    deductible?: number | null;
     items: { description: string; amount: number }[];
 };
+
+const validityShortcuts = [7, 15, 30];
 
 const statusOptions: { value: Status; label: string; hint: string }[] = [
     {
@@ -89,6 +100,13 @@ export default function EstimateForm({
         date: estimate?.date || todayIsoDate(),
         status: (estimate?.status || 'draft') as Status,
         notes: estimate?.notes || duplicateOf?.notes || '',
+        valid_until: estimate?.valid_until || '',
+        insurer_name: (estimate ?? duplicateOf)?.insurer_name || '',
+        claim_number: (estimate ?? duplicateOf)?.claim_number || '',
+        deductible:
+            (estimate ?? duplicateOf)?.deductible != null
+                ? centsToInput((estimate ?? duplicateOf)!.deductible!)
+                : '',
         items: (estimate?.items ?? duplicateOf?.items)?.map((item) => ({
             description: item.description,
             amount: centsToInput(item.amount),
@@ -96,6 +114,28 @@ export default function EstimateForm({
     });
 
     useUnsavedChanges(form.isDirty && !form.processing);
+
+    // A seção da seguradora fica aberta quando já há dados dela.
+    const [hasInsurer, setHasInsurer] = useState(
+        Boolean(
+            form.data.insurer_name ||
+            form.data.claim_number ||
+            form.data.deductible,
+        ),
+    );
+
+    const toggleInsurer = (enabled: boolean) => {
+        setHasInsurer(enabled);
+
+        if (!enabled) {
+            form.setData((data) => ({
+                ...data,
+                insurer_name: '',
+                claim_number: '',
+                deductible: '',
+            }));
+        }
+    };
 
     const descriptionRefs = useRef<(HTMLInputElement | null)[]>([]);
     const amountRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -195,6 +235,13 @@ export default function EstimateForm({
         event.preventDefault();
         form.transform((data) => ({
             ...data,
+            // Franquia inválida segue como texto para o servidor recusar com mensagem,
+            // em vez de virar R$ 0,00 em silêncio.
+            deductible: !data.deductible.trim()
+                ? null
+                : isMoneyInput(data.deductible)
+                  ? moneyToCents(data.deductible)
+                  : data.deductible,
             items: data.items.map((item) => ({
                 ...item,
                 amount: moneyToCents(item.amount),
@@ -555,6 +602,63 @@ export default function EstimateForm({
                     </fieldset>
 
                     <Field
+                        id="valid_until"
+                        label="Válido até"
+                        optional
+                        hint="Aparece no PDF. Deixe em branco se não houver prazo."
+                        error={form.errors.valid_until}
+                    >
+                        {(field) => (
+                            <Input
+                                {...field}
+                                name="valid_until"
+                                type="date"
+                                min={form.data.date || undefined}
+                                value={form.data.valid_until}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'valid_until',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                        )}
+                    </Field>
+                    <div
+                        className="-mt-2 flex flex-wrap gap-2"
+                        role="group"
+                        aria-label="Atalhos de validade"
+                    >
+                        {validityShortcuts.map((days) => (
+                            <Button
+                                key={days}
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={!form.data.date}
+                                onClick={() =>
+                                    form.setData(
+                                        'valid_until',
+                                        addDaysToIsoDate(form.data.date, days),
+                                    )
+                                }
+                            >
+                                {days} dias
+                            </Button>
+                        ))}
+                        {form.data.valid_until && (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => form.setData('valid_until', '')}
+                            >
+                                Sem validade
+                            </Button>
+                        )}
+                    </div>
+
+                    <Field
                         id="notes"
                         label="Observações"
                         optional
@@ -569,10 +673,126 @@ export default function EstimateForm({
                                 onChange={(event) =>
                                     form.setData('notes', event.target.value)
                                 }
-                                placeholder="Ex.: orçamento válido por 7 dias."
+                                placeholder="Ex.: peças com garantia de 90 dias."
                             />
                         )}
                     </Field>
+                </FormSection>
+
+                <FormSection>
+                    <label className="flex min-h-11 cursor-pointer items-center justify-between gap-4">
+                        <span>
+                            <span className="text-foreground block text-base font-semibold">
+                                Orçamento para seguradora
+                            </span>
+                            <span className="text-muted-foreground block text-sm">
+                                Seguradora, sinistro e franquia no PDF.
+                            </span>
+                        </span>
+                        <input
+                            type="checkbox"
+                            checked={hasInsurer}
+                            onChange={(event) =>
+                                toggleInsurer(event.target.checked)
+                            }
+                            className="accent-primary size-5 shrink-0"
+                        />
+                    </label>
+
+                    {hasInsurer && (
+                        <div className="mt-4 space-y-4">
+                            <Field
+                                id="insurer_name"
+                                label="Seguradora"
+                                optional
+                                error={form.errors.insurer_name}
+                            >
+                                {(field) => (
+                                    <Input
+                                        {...field}
+                                        name="insurer_name"
+                                        maxLength={120}
+                                        value={form.data.insurer_name}
+                                        onChange={(event) =>
+                                            form.setData(
+                                                'insurer_name',
+                                                event.target.value,
+                                            )
+                                        }
+                                        placeholder="Ex.: Porto Seguro"
+                                    />
+                                )}
+                            </Field>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <Field
+                                    id="claim_number"
+                                    label="Nº do sinistro"
+                                    optional
+                                    error={form.errors.claim_number}
+                                >
+                                    {(field) => (
+                                        <Input
+                                            {...field}
+                                            name="claim_number"
+                                            maxLength={60}
+                                            value={form.data.claim_number}
+                                            onChange={(event) =>
+                                                form.setData(
+                                                    'claim_number',
+                                                    event.target.value,
+                                                )
+                                            }
+                                        />
+                                    )}
+                                </Field>
+                                <Field
+                                    id="deductible"
+                                    label="Franquia"
+                                    optional
+                                    error={form.errors.deductible}
+                                >
+                                    {(field) => (
+                                        <div className="relative">
+                                            <span
+                                                aria-hidden="true"
+                                                className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-sm font-medium"
+                                            >
+                                                R$
+                                            </span>
+                                            <Input
+                                                {...field}
+                                                name="deductible"
+                                                inputMode="decimal"
+                                                value={form.data.deductible}
+                                                onChange={(event) =>
+                                                    form.setData(
+                                                        'deductible',
+                                                        event.target.value,
+                                                    )
+                                                }
+                                                onBlur={(event) =>
+                                                    isMoneyInput(
+                                                        event.target.value,
+                                                    ) &&
+                                                    form.setData(
+                                                        'deductible',
+                                                        centsToInput(
+                                                            moneyToCents(
+                                                                event.target
+                                                                    .value,
+                                                            ),
+                                                        ),
+                                                    )
+                                                }
+                                                placeholder="0,00"
+                                                className="tabular pl-10 text-right"
+                                            />
+                                        </div>
+                                    )}
+                                </Field>
+                            </div>
+                        </div>
+                    )}
                 </FormSection>
 
                 <div className="border-border bg-card sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] z-10 rounded-2xl border p-4 shadow-lg lg:bottom-4">

@@ -72,9 +72,9 @@ Formato curto: contexto, decisão, alternativas, consequências. Status **Aceita
 
 ---
 
-## ADR-006 — Imutabilidade do orçamento enviado (PROPOSTA)
+## ADR-006 — Imutabilidade do orçamento enviado
 
-**Status:** Proposta, depende de D1/D2 ([02-domain-model.md](02-domain-model.md)).
+**Status:** Decidida em 2026-10-19: o orçamento enviado pode ser editado, e cada edição guarda a versão anterior (opção "versionar"; implementação no PR C). O texto abaixo é a análise original.
 
 **Contexto:** hoje um orçamento "Enviado" pode ser editado sem rastro, e o PDF reemitido muda se o cliente ou o veículo mudar.
 

@@ -58,6 +58,10 @@ class EstimateController extends Controller
             'duplicateOf' => $source ? [
                 'number' => $source->number,
                 'notes' => $source->notes,
+                // A validade não é copiada: vale a partir da data do novo orçamento.
+                'insurer_name' => $source->insurer_name,
+                'claim_number' => $source->claim_number,
+                'deductible' => $source->deductible,
                 'items' => $source->items->map->only(['description', 'amount'])->values(),
             ] : null,
         ]);
