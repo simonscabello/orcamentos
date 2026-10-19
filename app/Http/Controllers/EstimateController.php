@@ -62,7 +62,9 @@ class EstimateController extends Controller
                 'insurer_name' => $source->insurer_name,
                 'claim_number' => $source->claim_number,
                 'deductible' => $source->deductible,
-                'items' => $source->items->map->only(['description', 'amount'])->values(),
+                'discount_type' => $source->discount_type,
+                'discount_value' => $source->discount_value,
+                'items' => $source->items->map->only(['description', 'type', 'quantity', 'unit_amount', 'amount'])->values(),
             ] : null,
         ]);
     }

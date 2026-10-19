@@ -49,7 +49,7 @@ Não há P0/P1 abertos. Estes itens dependem de você (acesso ao GitHub/Railway 
 | F2  | Validade em dias no PDF                                       | **Feito no PR A** — D3                          | Campo opcional; o PDF mostra "Válido até dd/mm/aaaa"                              |
 | F3  | Botão WhatsApp com mensagem pronta para o telefone do cliente | —                                               | Abre `wa.me/55DDDNÚMERO?text=...`; desabilitado se o cliente não tem telefone     |
 | F4  | Filtro por status na lista                                    | —                                               | `?status=sent` filtra; o estado da UI persiste na URL                             |
-| F5  | Quantidade × unitário e/ou peça vs. mão de obra               | **Decidido: PR B (com desconto)** — D4          | Totais por tipo no PDF; o total continua calculado no servidor em centavos        |
+| F5  | Quantidade × unitário e/ou peça vs. mão de obra               | **Feito no PR B (com desconto)** — D4           | Totais por tipo no PDF; o total continua calculado no servidor em centavos        |
 | F6  | Regra de troca de dono do veículo (T06)                       | **Decidido: PR C (avisar placa repetida)** — D1 | Ou bloqueada com mensagem, ou o orçamento guarda snapshot                         |
 | F7  | Cadastro de cliente/veículo inline no formulário              | —                                               | Criar cliente sem sair do orçamento, sem perder itens                             |
 

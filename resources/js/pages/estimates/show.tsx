@@ -20,6 +20,7 @@ import {
     formatPhone,
     todayIsoDate,
 } from '@/lib/format';
+import { itemTypeLabels } from '@/lib/estimate-totals';
 
 type Estimate = {
     id: number;
@@ -32,9 +33,19 @@ type Estimate = {
     insurer_name?: string | null;
     claim_number?: string | null;
     deductible?: number | null;
+    discount_type?: 'fixed' | 'percent' | null;
+    discount_value?: number | null;
+    discount_amount?: number;
     customer: { name: string; phone?: string };
     vehicle: { model: string; plate?: string; color?: string };
-    items: { id: number; description: string; amount: number }[];
+    items: {
+        id: number;
+        description: string;
+        amount: number;
+        type?: 'part' | 'labor' | null;
+        quantity?: number | null;
+        unit_amount?: number | null;
+    }[];
 };
 
 function DetailRow({
@@ -282,8 +293,23 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
                             key={item.id}
                             className="flex items-start justify-between gap-4 px-4 py-3 sm:px-5"
                         >
-                            <span className="text-foreground">
-                                {item.description}
+                            <span>
+                                <span className="text-foreground block">
+                                    {item.description}
+                                </span>
+                                {(item.type || item.quantity != null) && (
+                                    <span className="text-muted-foreground block text-sm">
+                                        {[
+                                            item.type &&
+                                                itemTypeLabels[item.type],
+                                            item.quantity != null &&
+                                                item.unit_amount != null &&
+                                                `${item.quantity} × ${formatCurrency(item.unit_amount)}`,
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' · ')}
+                                    </span>
+                                )}
                             </span>
                             <span className="tabular shrink-0 font-medium">
                                 {formatCurrency(item.amount)}
@@ -291,6 +317,30 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
                         </li>
                     ))}
                 </ul>
+                {Boolean(estimate.discount_amount) && (
+                    <div className="border-border text-muted-foreground tabular space-y-1 border-t px-4 py-3 text-sm sm:px-5">
+                        <p className="flex justify-between gap-4">
+                            <span>Subtotal</span>
+                            <span>
+                                {formatCurrency(
+                                    estimate.total +
+                                        (estimate.discount_amount ?? 0),
+                                )}
+                            </span>
+                        </p>
+                        <p className="flex justify-between gap-4">
+                            <span>
+                                Desconto
+                                {estimate.discount_type === 'percent' &&
+                                    estimate.discount_value != null &&
+                                    ` (${(estimate.discount_value / 100).toLocaleString('pt-BR')}%)`}
+                            </span>
+                            <span>
+                                −{formatCurrency(estimate.discount_amount ?? 0)}
+                            </span>
+                        </p>
+                    </div>
+                )}
                 <div className="bg-muted/50 flex items-baseline justify-between gap-4 px-4 py-4 sm:px-5">
                     <span className="text-muted-foreground text-sm font-semibold tracking-wide uppercase">
                         Total

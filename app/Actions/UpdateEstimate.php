@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\Models\Estimate;
+use App\Support\EstimateTotals;
 use Illuminate\Support\Facades\DB;
 
 class UpdateEstimate
@@ -13,13 +14,13 @@ class UpdateEstimate
             // Trava o orçamento: sem isso, duas gravações simultâneas intercalavam o
             // apagar/recriar dos itens e o total deixava de bater com a soma.
             $estimate = Estimate::lockForUpdate()->findOrFail($estimate->id);
-            $items = $attributes['items'];
+            $totals = EstimateTotals::fromAttributes($attributes);
             $estimate->update([
                 ...collect($attributes)->except('items')->all(),
-                'total' => array_sum(array_column($items, 'amount')),
+                ...$totals['columns'],
             ]);
             $estimate->items()->delete();
-            $estimate->items()->createMany($items);
+            $estimate->items()->createMany($totals['items']);
 
             return $estimate;
         });

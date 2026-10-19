@@ -3,11 +3,19 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import { MoneyInput } from '@/components/money-input';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FormSection } from '@/components/ui/field';
 import { Input, Select, Textarea } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
 import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
+import type { DiscountType, ItemType } from '@/lib/estimate-totals';
+import {
+    discountCents,
+    isQuantityInput,
+    itemCents,
+    itemTypeLabels,
+} from '@/lib/estimate-totals';
 import { focusFirstError } from '@/lib/form-errors';
 import {
     addDaysToIsoDate,
@@ -39,9 +47,34 @@ type Estimate = {
     insurer_name?: string | null;
     claim_number?: string | null;
     deductible?: number | null;
-    items: { description: string; amount: number }[];
+    discount_type?: 'fixed' | 'percent' | null;
+    discount_value?: number | null;
+    items: SavedItem[];
 };
-type Item = { description: string; amount: string };
+type SavedItem = {
+    description: string;
+    amount: number;
+    type?: 'part' | 'labor' | null;
+    quantity?: number | null;
+    unit_amount?: number | null;
+};
+type Item = {
+    description: string;
+    amount: string;
+    type: ItemType;
+    detailed: boolean;
+    quantity: string;
+    unit_amount: string;
+};
+
+const emptyItem: Item = {
+    description: '',
+    amount: '',
+    type: '',
+    detailed: false,
+    quantity: '',
+    unit_amount: '',
+};
 type Status = 'draft' | 'sent';
 type DuplicateOf = {
     number: number;
@@ -49,8 +82,16 @@ type DuplicateOf = {
     insurer_name?: string | null;
     claim_number?: string | null;
     deductible?: number | null;
-    items: { description: string; amount: number }[];
+    discount_type?: 'fixed' | 'percent' | null;
+    discount_value?: number | null;
+    items: SavedItem[];
 };
+
+const discountOptions: { value: DiscountType; label: string }[] = [
+    { value: '', label: 'Sem desconto' },
+    { value: 'fixed', label: 'Em R$' },
+    { value: 'percent', label: 'Em %' },
+];
 
 const validityShortcuts = [7, 15, 30];
 
@@ -107,10 +148,21 @@ export default function EstimateForm({
             (estimate ?? duplicateOf)?.deductible != null
                 ? centsToInput((estimate ?? duplicateOf)!.deductible!)
                 : '',
-        items: (estimate?.items ?? duplicateOf?.items)?.map((item) => ({
+        discount_type: ((estimate ?? duplicateOf)?.discount_type ??
+            '') as DiscountType,
+        discount_value:
+            (estimate ?? duplicateOf)?.discount_value != null
+                ? centsToInput((estimate ?? duplicateOf)!.discount_value!)
+                : '',
+        items: (estimate?.items ?? duplicateOf?.items)?.map((item): Item => ({
             description: item.description,
             amount: centsToInput(item.amount),
-        })) ?? [{ description: '', amount: '' } as Item],
+            type: item.type ?? '',
+            detailed: item.quantity != null,
+            quantity: item.quantity != null ? String(item.quantity) : '',
+            unit_amount:
+                item.unit_amount != null ? centsToInput(item.unit_amount) : '',
+        })) ?? [emptyItem],
     });
 
     useUnsavedChanges(form.isDirty && !form.processing);
@@ -144,10 +196,16 @@ export default function EstimateForm({
     const options = vehicles.filter(
         (vehicle) => String(vehicle.customer_id) === form.data.customer_id,
     );
-    const total = form.data.items.reduce(
-        (sum, item) => sum + moneyToCents(item.amount),
+    const subtotal = form.data.items.reduce(
+        (sum, item) => sum + itemCents(item),
         0,
     );
+    const discount = discountCents(
+        subtotal,
+        form.data.discount_type,
+        form.data.discount_value,
+    );
+    const total = subtotal - discount;
 
     // Move o foco para o item recém-adicionado.
     useEffect(() => {
@@ -167,10 +225,7 @@ export default function EstimateForm({
 
     const addItem = () => {
         focusIndex.current = form.data.items.length;
-        form.setData('items', [
-            ...form.data.items,
-            { description: '', amount: '' },
-        ]);
+        form.setData('items', [...form.data.items, emptyItem]);
     };
 
     // Remoção imediata, com opção de desfazer: evita um diálogo de confirmação a cada item.
@@ -242,9 +297,27 @@ export default function EstimateForm({
                 : isMoneyInput(data.deductible)
                   ? moneyToCents(data.deductible)
                   : data.deductible,
-            items: data.items.map((item) => ({
-                ...item,
-                amount: moneyToCents(item.amount),
+            discount_type: data.discount_type || null,
+            discount_value: !data.discount_type
+                ? null
+                : isMoneyInput(data.discount_value)
+                  ? moneyToCents(data.discount_value)
+                  : data.discount_value,
+            // Valores inválidos seguem como texto para o servidor recusar com mensagem.
+            items: data.items.map(({ detailed, ...item }) => ({
+                description: item.description,
+                type: item.type || null,
+                quantity: !detailed
+                    ? null
+                    : isQuantityInput(item.quantity)
+                      ? Number(item.quantity)
+                      : item.quantity,
+                unit_amount: !detailed
+                    ? null
+                    : isMoneyInput(item.unit_amount)
+                      ? moneyToCents(item.unit_amount)
+                      : item.unit_amount,
+                amount: detailed ? null : moneyToCents(item.amount),
             })),
         }));
 
@@ -408,6 +481,12 @@ export default function EstimateForm({
                                 form.errors[`items.${index}.description`];
                             const amountError =
                                 form.errors[`items.${index}.amount`];
+                            const quantityError =
+                                form.errors[`items.${index}.quantity`];
+                            const unitError =
+                                form.errors[`items.${index}.unit_amount`];
+                            const typeError =
+                                form.errors[`items.${index}.type`];
 
                             return (
                                 <li
@@ -437,7 +516,7 @@ export default function EstimateForm({
                                     <div className="grid gap-3 sm:grid-cols-[1fr_11rem]">
                                         <Field
                                             id={`items-${index}-description`}
-                                            label="Descrição do serviço"
+                                            label="Descrição"
                                             error={descriptionError}
                                         >
                                             {(field) => (
@@ -476,71 +555,200 @@ export default function EstimateForm({
                                             )}
                                         </Field>
 
-                                        <Field
-                                            id={`items-${index}-amount`}
-                                            label="Valor"
-                                            error={amountError}
-                                        >
-                                            {(field) => (
-                                                <div className="relative">
-                                                    <span
-                                                        aria-hidden="true"
-                                                        className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-sm font-medium"
-                                                    >
-                                                        R$
-                                                    </span>
-                                                    <Input
-                                                        {...field}
-                                                        ref={(element) => {
-                                                            amountRefs.current[
-                                                                index
-                                                            ] = element;
-                                                        }}
-                                                        required
-                                                        inputMode="decimal"
-                                                        enterKeyHint={
-                                                            index ===
-                                                            form.data.items
-                                                                .length -
-                                                                1
-                                                                ? 'enter'
-                                                                : 'next'
-                                                        }
-                                                        onKeyDown={(event) =>
-                                                            onItemKeyDown(
-                                                                event,
-                                                                index,
-                                                                'amount',
-                                                            )
-                                                        }
-                                                        value={item.amount}
-                                                        onChange={(event) =>
-                                                            setItem(index, {
-                                                                amount: event
-                                                                    .target
-                                                                    .value,
-                                                            })
-                                                        }
-                                                        onBlur={(event) =>
-                                                            event.target
-                                                                .value &&
-                                                            setItem(index, {
-                                                                amount: centsToInput(
-                                                                    moneyToCents(
+                                        {item.detailed ? (
+                                            <div className="grid grid-cols-[5rem_1fr] gap-3">
+                                                <Field
+                                                    id={`items-${index}-quantity`}
+                                                    label="Qtd"
+                                                    error={quantityError}
+                                                >
+                                                    {(field) => (
+                                                        <Input
+                                                            {...field}
+                                                            inputMode="numeric"
+                                                            value={
+                                                                item.quantity
+                                                            }
+                                                            onChange={(event) =>
+                                                                setItem(index, {
+                                                                    quantity:
                                                                         event
                                                                             .target
                                                                             .value,
+                                                                })
+                                                            }
+                                                            className="tabular text-center"
+                                                        />
+                                                    )}
+                                                </Field>
+                                                <Field
+                                                    id={`items-${index}-unit_amount`}
+                                                    label="Valor unitário"
+                                                    error={unitError}
+                                                >
+                                                    {(field) => (
+                                                        <MoneyInput
+                                                            {...field}
+                                                            value={
+                                                                item.unit_amount
+                                                            }
+                                                            onValueChange={(
+                                                                value,
+                                                            ) =>
+                                                                setItem(index, {
+                                                                    unit_amount:
+                                                                        value,
+                                                                })
+                                                            }
+                                                            className="font-semibold"
+                                                        />
+                                                    )}
+                                                </Field>
+                                            </div>
+                                        ) : (
+                                            <Field
+                                                id={`items-${index}-amount`}
+                                                label="Valor"
+                                                error={amountError}
+                                            >
+                                                {(field) => (
+                                                    <div className="relative">
+                                                        <span
+                                                            aria-hidden="true"
+                                                            className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-sm font-medium"
+                                                        >
+                                                            R$
+                                                        </span>
+                                                        <Input
+                                                            {...field}
+                                                            ref={(element) => {
+                                                                amountRefs.current[
+                                                                    index
+                                                                ] = element;
+                                                            }}
+                                                            required
+                                                            inputMode="decimal"
+                                                            enterKeyHint={
+                                                                index ===
+                                                                form.data.items
+                                                                    .length -
+                                                                    1
+                                                                    ? 'enter'
+                                                                    : 'next'
+                                                            }
+                                                            onKeyDown={(
+                                                                event,
+                                                            ) =>
+                                                                onItemKeyDown(
+                                                                    event,
+                                                                    index,
+                                                                    'amount',
+                                                                )
+                                                            }
+                                                            value={item.amount}
+                                                            onChange={(event) =>
+                                                                setItem(index, {
+                                                                    amount: event
+                                                                        .target
+                                                                        .value,
+                                                                })
+                                                            }
+                                                            onBlur={(event) =>
+                                                                event.target
+                                                                    .value &&
+                                                                setItem(index, {
+                                                                    amount: centsToInput(
+                                                                        moneyToCents(
+                                                                            event
+                                                                                .target
+                                                                                .value,
+                                                                        ),
                                                                     ),
-                                                                ),
-                                                            })
-                                                        }
-                                                        placeholder="0,00"
-                                                        className="tabular pl-10 text-right font-semibold"
-                                                    />
-                                                </div>
-                                            )}
-                                        </Field>
+                                                                })
+                                                            }
+                                                            placeholder="0,00"
+                                                            className="tabular pl-10 text-right font-semibold"
+                                                        />
+                                                    </div>
+                                                )}
+                                            </Field>
+                                        )}
                                     </div>
+
+                                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                                        {(
+                                            Object.keys(
+                                                itemTypeLabels,
+                                            ) as Exclude<ItemType, ''>[]
+                                        ).map((type) => (
+                                            <Button
+                                                key={type}
+                                                type="button"
+                                                size="sm"
+                                                variant={
+                                                    item.type === type
+                                                        ? 'primary'
+                                                        : 'outline'
+                                                }
+                                                aria-pressed={
+                                                    item.type === type
+                                                }
+                                                onClick={() =>
+                                                    setItem(index, {
+                                                        type:
+                                                            item.type === type
+                                                                ? ''
+                                                                : type,
+                                                    })
+                                                }
+                                            >
+                                                {itemTypeLabels[type]}
+                                            </Button>
+                                        ))}
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="ghost"
+                                            className="ml-auto"
+                                            onClick={() =>
+                                                setItem(
+                                                    index,
+                                                    item.detailed
+                                                        ? {
+                                                              detailed: false,
+                                                              amount: centsToInput(
+                                                                  itemCents(
+                                                                      item,
+                                                                  ),
+                                                              ),
+                                                          }
+                                                        : {
+                                                              detailed: true,
+                                                              quantity: '1',
+                                                              unit_amount:
+                                                                  item.amount,
+                                                          },
+                                                )
+                                            }
+                                        >
+                                            {item.detailed
+                                                ? 'Valor único'
+                                                : 'Qtd × unitário'}
+                                        </Button>
+                                    </div>
+                                    {item.detailed && (
+                                        <p className="text-muted-foreground mt-2 text-right text-sm">
+                                            Total do item:{' '}
+                                            <span className="tabular text-foreground font-semibold">
+                                                {formatCurrency(
+                                                    itemCents(item),
+                                                )}
+                                            </span>
+                                        </p>
+                                    )}
+                                    {typeError && (
+                                        <FieldError>{typeError}</FieldError>
+                                    )}
                                 </li>
                             );
                         })}
@@ -560,6 +768,76 @@ export default function EstimateForm({
                         <FieldError>{form.errors.items}</FieldError>
                     )}
                 </section>
+
+                <FormSection title="Desconto">
+                    <div
+                        className="bg-muted grid grid-cols-3 gap-1 rounded-xl p-1"
+                        role="radiogroup"
+                        aria-label="Tipo de desconto"
+                    >
+                        {discountOptions.map((option) => (
+                            <label
+                                key={option.value || 'none'}
+                                className="has-checked:bg-card has-checked:text-foreground text-muted-foreground has-focus-visible:ring-ring flex min-h-10 cursor-pointer items-center justify-center rounded-lg px-2 text-sm font-medium transition-colors has-checked:shadow-xs has-focus-visible:ring-2"
+                            >
+                                <input
+                                    type="radio"
+                                    name="discount_type"
+                                    value={option.value}
+                                    checked={
+                                        form.data.discount_type === option.value
+                                    }
+                                    onChange={() =>
+                                        form.setData((data) => ({
+                                            ...data,
+                                            discount_type: option.value,
+                                            discount_value: option.value
+                                                ? data.discount_value
+                                                : '',
+                                        }))
+                                    }
+                                    className="sr-only"
+                                />
+                                {option.label}
+                            </label>
+                        ))}
+                    </div>
+                    {form.errors.discount_type && (
+                        <FieldError>{form.errors.discount_type}</FieldError>
+                    )}
+
+                    {form.data.discount_type && (
+                        <Field
+                            id="discount_value"
+                            label={
+                                form.data.discount_type === 'percent'
+                                    ? 'Desconto (%)'
+                                    : 'Desconto (R$)'
+                            }
+                            hint={
+                                discount > 0
+                                    ? `Desconto de ${formatCurrency(discount)} sobre ${formatCurrency(subtotal)}.`
+                                    : undefined
+                            }
+                            error={form.errors.discount_value}
+                        >
+                            {(field) => (
+                                <MoneyInput
+                                    {...field}
+                                    prefix={
+                                        form.data.discount_type === 'percent'
+                                            ? '%'
+                                            : 'R$'
+                                    }
+                                    value={form.data.discount_value}
+                                    onValueChange={(value) =>
+                                        form.setData('discount_value', value)
+                                    }
+                                />
+                            )}
+                        </Field>
+                    )}
+                </FormSection>
 
                 <FormSection>
                     <fieldset>
@@ -796,6 +1074,12 @@ export default function EstimateForm({
                 </FormSection>
 
                 <div className="border-border bg-card sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] z-10 rounded-2xl border p-4 shadow-lg lg:bottom-4">
+                    {discount > 0 && (
+                        <p className="text-muted-foreground tabular mb-1 flex justify-between gap-4 text-sm">
+                            <span>Subtotal {formatCurrency(subtotal)}</span>
+                            <span>Desconto −{formatCurrency(discount)}</span>
+                        </p>
+                    )}
                     <div className="mb-3 flex items-baseline justify-between gap-4">
                         <span className="text-muted-foreground text-sm font-medium">
                             Total do orçamento

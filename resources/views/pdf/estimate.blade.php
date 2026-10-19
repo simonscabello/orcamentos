@@ -19,6 +19,8 @@
         .description { padding-right: 18px; word-wrap: break-word; }
         .amount { text-align: right; white-space: nowrap; }
         tfoot { page-break-inside: avoid; }
+        .item-meta { color: #6b7280; font-size: 9.5px; }
+        .summary-row td { color: #4b5563; padding: 4px 0; }
         .total-row td { border-top: 2px solid #374151; color: #111827; font-size: 14px; font-weight: bold; padding-top: 12px; }
         .notes { margin-top: 26px; page-break-inside: avoid; }
         .notes-title { font-size: 11px; font-weight: bold; margin: 0 0 5px; }
@@ -30,6 +32,11 @@
         $phone = \App\Support\BrazilianFormat::formatPhone($estimate->business->phone);
         $document = \App\Support\BrazilianFormat::formatDocument($estimate->business->document);
         $documentLabel = \App\Support\BrazilianFormat::documentLabel($estimate->business->document);
+        $typeLabels = ['part' => 'Peça', 'labor' => 'Mão de obra'];
+        $typedTotals = collect($typeLabels)
+            ->map(fn ($label, $type) => $estimate->items->where('type', $type)->sum('amount'))
+            ->filter();
+        $subtotal = $estimate->total + (int) $estimate->discount_amount;
     @endphp
 
     <header class="business-header">
@@ -83,12 +90,38 @@
         <tbody>
             @foreach ($estimate->items as $item)
                 <tr>
-                    <td class="description">{{ $item->description }}</td>
+                    <td class="description">
+                        {{ $item->description }}
+                        @if ($item->type || $item->quantity !== null)
+                            <br><span class="item-meta">{{ collect([
+                                $typeLabels[$item->type] ?? null,
+                                $item->quantity !== null ? $item->quantity.' × '.\App\Support\BrazilianFormat::formatCurrency($item->unit_amount) : null,
+                            ])->filter()->implode(' · ') }}</span>
+                        @endif
+                    </td>
                     <td class="amount">{{ \App\Support\BrazilianFormat::formatCurrency($item->amount) }}</td>
                 </tr>
             @endforeach
         </tbody>
         <tfoot>
+            @if ($typedTotals->isNotEmpty())
+                @foreach ($typedTotals as $type => $amount)
+                    <tr class="summary-row">
+                        <td>{{ $type === 'part' ? 'Peças' : 'Mão de obra' }}</td>
+                        <td class="amount">{{ \App\Support\BrazilianFormat::formatCurrency($amount) }}</td>
+                    </tr>
+                @endforeach
+            @endif
+            @if ($estimate->discount_amount > 0)
+                <tr class="summary-row">
+                    <td>Subtotal</td>
+                    <td class="amount">{{ \App\Support\BrazilianFormat::formatCurrency($subtotal) }}</td>
+                </tr>
+                <tr class="summary-row">
+                    <td>Desconto{{ $estimate->discount_type === 'percent' ? ' ('.rtrim(rtrim(number_format($estimate->discount_value / 100, 2, ',', '.'), '0'), ',').'%)' : '' }}</td>
+                    <td class="amount">− {{ \App\Support\BrazilianFormat::formatCurrency($estimate->discount_amount) }}</td>
+                </tr>
+            @endif
             <tr class="total-row">
                 <td>TOTAL</td>
                 <td class="amount">{{ \App\Support\BrazilianFormat::formatCurrency($estimate->total) }}</td>
