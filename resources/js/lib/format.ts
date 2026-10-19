@@ -33,7 +33,8 @@ export const moneyToCents = (value: string) => {
     const normalized = value.replace(/R\$|\s|\u00a0/gi, '');
     const isMoney =
         /^(\d+|\d{1,3}(\.\d{3})+)(,\d*)?$/.test(normalized) ||
-        /^\d+\.\d{1,2}$/.test(normalized);
+        /^\d*\.\d{1,2}$/.test(normalized) ||
+        /^,\d{1,2}$/.test(normalized);
 
     if (!isMoney) return 0;
 

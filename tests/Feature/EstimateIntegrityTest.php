@@ -57,24 +57,26 @@ it('keeps items in the order they were typed', function () {
         DB::statement('PRAGMA reverse_unordered_selects = ON');
     }
 
-    $user = User::factory()->create();
-    [$customer, $vehicle] = integrityVehicle($user->business);
-    $descriptions = ['Zeta', 'Alfa', 'Meio', 'Beta'];
+    try {
+        $user = User::factory()->create();
+        [$customer, $vehicle] = integrityVehicle($user->business);
+        $descriptions = ['Zeta', 'Alfa', 'Meio', 'Beta'];
 
-    $this->actingAs($user)->post('/estimates', integrityPayload($customer, $vehicle, array_map(
-        fn (string $description) => ['description' => $description, 'amount' => 100],
-        $descriptions,
-    )));
-    $estimate = Estimate::forBusiness($user->business)->firstOrFail();
+        $this->actingAs($user)->post('/estimates', integrityPayload($customer, $vehicle, array_map(
+            fn (string $description) => ['description' => $description, 'amount' => 100],
+            $descriptions,
+        )));
+        $estimate = Estimate::forBusiness($user->business)->firstOrFail();
 
-    $this->actingAs($user)
-        ->get("/estimates/{$estimate->id}")
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('estimate.items', fn ($items) => collect($items)->pluck('description')->all() === $descriptions)
-        );
-
-    if (DB::getDriverName() === 'sqlite') {
-        DB::statement('PRAGMA reverse_unordered_selects = OFF');
+        $this->actingAs($user)
+            ->get("/estimates/{$estimate->id}")
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('estimate.items', fn ($items) => collect($items)->pluck('description')->all() === $descriptions)
+            );
+    } finally {
+        if (DB::getDriverName() === 'sqlite') {
+            DB::statement('PRAGMA reverse_unordered_selects = OFF');
+        }
     }
 });
 
