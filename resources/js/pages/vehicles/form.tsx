@@ -15,15 +15,29 @@ type Vehicle = {
     plate?: string;
     color?: string;
 };
+type KnownPlate = {
+    plate: string;
+    customer_id: number;
+    customer_name: string;
+    model: string;
+};
+
+/** Mesma normalização do servidor (Vehicle::normalizePlate): só letras e números. */
+const normalizePlate = (plate: string) =>
+    plate.toUpperCase().replace(/[^A-Z0-9]/g, '');
 
 export default function VehicleForm({
     vehicle,
     customers,
     selectedCustomerId,
+    knownPlates = [],
+    hasEstimates = false,
 }: {
     vehicle?: Vehicle;
     customers: Customer[];
     selectedCustomerId?: number;
+    knownPlates?: KnownPlate[];
+    hasEstimates?: boolean;
 }) {
     const form = useForm({
         // Sem cliente indicado pela tela de origem, o usuário escolhe: evita vincular o veículo ao cliente errado.
@@ -43,6 +57,15 @@ export default function VehicleForm({
     };
 
     useUnsavedChanges(form.isDirty && !form.processing);
+
+    // O mesmo carro pode voltar com outra pessoa: avisa, mas deixa salvar.
+    const plate = normalizePlate(form.data.plate);
+    const repeatedPlate = plate
+        ? knownPlates.find((known) => known.plate === plate)
+        : undefined;
+    const repeatedForSameCustomer =
+        repeatedPlate &&
+        String(repeatedPlate.customer_id) === form.data.customer_id;
 
     const cancelHref = form.data.customer_id
         ? `/customers/${vehicle?.customer_id || form.data.customer_id}`
@@ -65,9 +88,11 @@ export default function VehicleForm({
                         label="Cliente"
                         error={form.errors.customer_id}
                         hint={
-                            customers.length
-                                ? undefined
-                                : 'Cadastre um cliente antes de continuar.'
+                            !customers.length
+                                ? 'Cadastre um cliente antes de continuar.'
+                                : hasEstimates
+                                  ? 'Este veículo já tem orçamentos, por isso o cliente não muda. Para um novo dono, cadastre o veículo de novo.'
+                                  : undefined
                         }
                     >
                         {(field) => (
@@ -75,6 +100,7 @@ export default function VehicleForm({
                                 {...field}
                                 name="customer_id"
                                 required
+                                disabled={hasEstimates}
                                 value={form.data.customer_id}
                                 onChange={(event) =>
                                     form.setData(
@@ -143,6 +169,16 @@ export default function VehicleForm({
                             />
                         )}
                     </Field>
+                    {repeatedPlate && (
+                        <p
+                            role="status"
+                            className="-mt-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-200"
+                        >
+                            {repeatedForSameCustomer
+                                ? `Este cliente já tem um veículo com essa placa (${repeatedPlate.model}).`
+                                : `Esta placa já está cadastrada para ${repeatedPlate.customer_name} (${repeatedPlate.model}). Você pode salvar mesmo assim para este cliente.`}
+                        </p>
+                    )}
 
                     <Field
                         id="color"

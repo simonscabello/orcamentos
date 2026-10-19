@@ -2,8 +2,11 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Vehicle;
+use App\Support\VehicleOwnership;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class VehicleRequest extends FormRequest
 {
@@ -20,6 +23,22 @@ class VehicleRequest extends FormRequest
             'plate' => ['nullable', 'string', 'max:16'],
             'color' => ['nullable', 'string', 'max:100'],
         ];
+    }
+
+    /**
+     * Um veículo com orçamentos não muda de dono: os orçamentos antigos ficariam com o cliente errado.
+     */
+    public function after(): array
+    {
+        return [function (Validator $validator): void {
+            $vehicle = $this->route('vehicle')
+                ? Vehicle::forBusiness($this->user()->business_id)->find($this->route('vehicle'))
+                : null;
+
+            if ($vehicle && $this->filled('customer_id') && $vehicle->customer_id !== $this->integer('customer_id') && $vehicle->estimates()->exists()) {
+                $validator->errors()->add('customer_id', VehicleOwnership::OWNER_LOCKED_MESSAGE);
+            }
+        }];
     }
 
     public function messages(): array

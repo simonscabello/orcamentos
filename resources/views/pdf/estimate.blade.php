@@ -52,7 +52,7 @@
         @endif
     </header>
 
-    <h1 class="estimate-title">ORÇAMENTO Nº {{ str_pad((string) $estimate->number, 3, '0', STR_PAD_LEFT) }}</h1>
+    <h1 class="estimate-title">ORÇAMENTO Nº {{ str_pad((string) $estimate->number, 3, '0', STR_PAD_LEFT) }}@if ($estimate->version > 1) · VERSÃO {{ $estimate->version }}@endif</h1>
 
     <section class="details">
         <p class="detail"><span class="label">Cliente:</span> {{ $estimate->customer->name }}</p>

@@ -22,9 +22,18 @@ import {
 } from '@/lib/format';
 import { itemTypeLabels } from '@/lib/estimate-totals';
 
+type EstimateVersion = {
+    id: number;
+    version: number;
+    total: number;
+    created_at: string;
+};
+
 type Estimate = {
     id: number;
     number: number;
+    version: number;
+    versions: EstimateVersion[];
     total: number;
     date: string;
     status?: string;
@@ -72,7 +81,7 @@ function DetailRow({
 
 export default function EstimateShow({ estimate }: { estimate: Estimate }) {
     const pdfUrl = `/estimates/${estimate.id}/pdf`;
-    const fileName = `orcamento-${String(estimate.number).padStart(3, '0')}.pdf`;
+    const fileName = `orcamento-${String(estimate.number).padStart(3, '0')}${estimate.version > 1 ? `-v${estimate.version}` : ''}.pdf`;
     const [pdfAction, setPdfAction] = useState<'download' | 'share' | null>(
         null,
     );
@@ -203,7 +212,11 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
             <PageHeader
                 eyebrow="Orçamento"
                 title={formatEstimateNumber(estimate.number)}
-                description={formatDate(estimate.date)}
+                description={
+                    estimate.version > 1
+                        ? `${formatDate(estimate.date)} · versão ${estimate.version}`
+                        : formatDate(estimate.date)
+                }
                 backHref="/estimates"
                 backLabel="Orçamentos"
                 action={
@@ -359,6 +372,48 @@ export default function EstimateShow({ estimate }: { estimate: Estimate }) {
                     <p className="text-muted-foreground text-sm whitespace-pre-line">
                         {estimate.notes}
                     </p>
+                </section>
+            )}
+
+            {estimate.versions.length > 0 && (
+                <section className="border-border bg-card mt-4 rounded-2xl border p-4 sm:p-5">
+                    <h2 className="text-base font-semibold">
+                        Versões anteriores
+                    </h2>
+                    <p className="text-muted-foreground mb-2 text-sm">
+                        Cópia do que o cliente recebeu antes de cada alteração.
+                    </p>
+                    <ul className="divide-border divide-y">
+                        {[...estimate.versions].reverse().map((version) => (
+                            <li
+                                key={version.id}
+                                className="flex items-center justify-between gap-4 py-2"
+                            >
+                                <span>
+                                    <span className="text-foreground block font-medium">
+                                        Versão {version.version} ·{' '}
+                                        <span className="tabular">
+                                            {formatCurrency(version.total)}
+                                        </span>
+                                    </span>
+                                    <span className="text-muted-foreground block text-sm">
+                                        Substituída em{' '}
+                                        {formatDate(version.created_at)}
+                                    </span>
+                                </span>
+                                <Button asChild variant="outline" size="sm">
+                                    <a
+                                        href={`/estimates/${estimate.id}/versions/${version.version}/pdf`}
+                                        download
+                                        aria-label={`Baixar PDF da versão ${version.version}`}
+                                    >
+                                        <Download aria-hidden="true" />
+                                        PDF
+                                    </a>
+                                </Button>
+                            </li>
+                        ))}
+                    </ul>
                 </section>
             )}
 

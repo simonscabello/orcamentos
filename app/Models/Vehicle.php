@@ -19,6 +19,12 @@ class Vehicle extends Model
         return $this->belongsTo(Customer::class);
     }
 
+    /** Placa só com letras e números, em maiúsculas: "abc-1234" e "ABC1234" são a mesma. */
+    public static function normalizePlate(?string $plate): string
+    {
+        return preg_replace('/[^A-Z0-9]/', '', strtoupper((string) $plate));
+    }
+
     public function estimates(): HasMany
     {
         return $this->hasMany(Estimate::class);

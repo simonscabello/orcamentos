@@ -9,6 +9,7 @@ use App\Models\Customer;
 use App\Models\Estimate;
 use App\Models\EstimateItem;
 use App\Models\Vehicle;
+use App\Support\EstimateSnapshot;
 use App\Support\SearchTerm;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -80,7 +81,7 @@ class EstimateController extends Controller
 
     public function show(Request $request, int $estimate): Response
     {
-        $estimate = $this->estimate($request, $estimate)->load(['customer', 'vehicle', 'items']);
+        $estimate = $this->estimate($request, $estimate)->load(['customer', 'vehicle', 'items', 'versions:id,estimate_id,version,total,created_at']);
 
         return Inertia::render('estimates/show', compact('estimate'));
     }
@@ -108,7 +109,13 @@ class EstimateController extends Controller
             ['status.required' => 'Selecione um status.', 'status.in' => 'Selecione um status válido.'],
         );
 
-        $this->estimate($request, $estimate)->update($validated);
+        $model = $this->estimate($request, $estimate);
+        $model->update($validated);
+
+        // Ao marcar como enviado, o conteúdo atual é o que o cliente recebe.
+        if ($validated['status'] === 'sent') {
+            EstimateSnapshot::store($model);
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => $validated['status'] === 'sent'
             ? 'Orçamento marcado como enviado.'

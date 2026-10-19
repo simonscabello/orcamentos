@@ -74,7 +74,7 @@ Formato curto: contexto, decisão, alternativas, consequências. Status **Aceita
 
 ## ADR-006 — Imutabilidade do orçamento enviado
 
-**Status:** Decidida em 2026-10-19: o orçamento enviado pode ser editado, e cada edição guarda a versão anterior (opção "versionar"; implementação no PR C). O texto abaixo é a análise original.
+**Status:** Decidida em 2026-10-19: o orçamento enviado pode ser editado, e cada edição guarda a versão anterior (opção "versionar", implementada no PR C: `estimate_versions` com cópia JSON; a cópia é tirada a cada gravação e ao marcar como enviado, para registrar o que o cliente recebeu mesmo que o cadastro mude depois). O texto abaixo é a análise original.
 
 **Contexto:** hoje um orçamento "Enviado" pode ser editado sem rastro, e o PDF reemitido muda se o cliente ou o veículo mudar.
 
